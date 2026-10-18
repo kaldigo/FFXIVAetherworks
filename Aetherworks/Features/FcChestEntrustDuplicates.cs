@@ -40,7 +40,7 @@ public sealed class FcChestEntrustDuplicates(IFramework framework,
     public void Enable()
     {
         if (enabled) return;
-        buttons = new NativeEntrustButtons("FreeCompanyChest", ButtonState, Click, log);
+        buttons = new NativeEntrustButtons("FreeCompanyChest", ButtonState, Click, log, framework);
         buttons.Enable();
         framework.Update += Update;
         enabled = true;

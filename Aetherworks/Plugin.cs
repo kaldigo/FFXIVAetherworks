@@ -20,6 +20,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly TweakManager tweaks;
     private readonly OwnershipTracker ownership;
     private readonly OwnershipTooltipPanel tooltip;
+    private readonly IFramework framework;
     private bool disposed;
 
     public Plugin(IDalamudPluginInterface pluginInterface, ICommandManager commands, IPluginLog log,
@@ -29,6 +30,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         this.pluginInterface = pluginInterface;
         this.commands = commands;
+        this.framework = framework;
         KamiToolKit.KamiToolKitLibrary.Initialize(pluginInterface);
         var config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         config.EnabledTweaks ??= new(StringComparer.Ordinal);
@@ -76,6 +78,6 @@ public sealed class Plugin : IDalamudPlugin
         tweaks.Dispose();
         tooltip.Dispose();
         ownership.Dispose();
-        KamiToolKit.KamiToolKitLibrary.Dispose();
+        framework.RunOnFrameworkThread(KamiToolKit.KamiToolKitLibrary.Dispose).GetAwaiter().GetResult();
     }
 }

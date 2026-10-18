@@ -15,13 +15,15 @@ public sealed unsafe class NativeEntrustButtons : IDisposable
     private readonly Func<EntrustButtonState> state;
     private readonly Action<bool> clicked;
     private readonly IPluginLog log;
+    private readonly IFramework framework;
     private readonly bool chest;
     private TextButtonNode? current, all;
     private bool errorLogged;
 
-    public NativeEntrustButtons(string addonName, Func<EntrustButtonState> state, Action<bool> clicked, IPluginLog log)
+    public NativeEntrustButtons(string addonName, Func<EntrustButtonState> state, Action<bool> clicked, IPluginLog log, IFramework framework)
     {
         this.state = state; this.clicked = clicked; this.log = log;
+        this.framework = framework;
         chest = addonName == "FreeCompanyChest";
         controller = new AddonController
         {
@@ -31,7 +33,9 @@ public sealed unsafe class NativeEntrustButtons : IDisposable
             OnFinalize = _ => Clear(),
         };
     }
-    public void Enable() => controller.Enable();
+    // Plugin restoration/unload can run on a loader thread. Wait for completion
+    // so TweakManager can still report failures and roll back synchronously.
+    public void Enable() => framework.RunOnFrameworkThread(controller.Enable).GetAwaiter().GetResult();
     private void Setup(AtkUnitBase* addon)
     {
         if (addon->RootNode == null || current != null) return;
@@ -96,5 +100,9 @@ public sealed unsafe class NativeEntrustButtons : IDisposable
         all?.Dispose(); all = null;
         current?.Dispose(); current = null;
     }
-    public void Dispose() { controller.Dispose(); Clear(); }
+    public void Dispose() => framework.RunOnFrameworkThread(() =>
+    {
+        controller.Dispose();
+        Clear();
+    }).GetAwaiter().GetResult();
 }

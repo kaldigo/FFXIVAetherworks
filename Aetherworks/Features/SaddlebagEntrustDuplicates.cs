@@ -28,7 +28,7 @@ public sealed class SaddlebagEntrustDuplicates(IFramework framework,
     public void Enable()
     {
         if (enabled) return;
-        buttons = new NativeEntrustButtons("InventoryBuddy", ButtonState, Click, log);
+        buttons = new NativeEntrustButtons("InventoryBuddy", ButtonState, Click, log, framework);
         buttons.Enable();
         framework.Update += Update;
         enabled = true;
