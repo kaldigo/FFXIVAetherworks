@@ -118,3 +118,5 @@ Version 0.1.3 removes the FC chest and saddlebag ImGui panels entirely. Game-tex
 Version 0.1.4 fixes the confirmed “Not on main thread!” startup failure by dispatching native button setup, disposal and library cleanup to the framework thread. Failed startup in 0.1.3 may have switched the two deposit features off; re-enable them after updating. Verify both buttons after plugin reload and after disabling/re-enabling their features with the storage windows open.
 
 Developers: initialize the pinned dependency with `git submodule update --init --recursive`. Release ZIPs include KamiToolKit.dll, its assets and its MIT license; installing Artisan is not required. Reference: https://github.com/PunishXIV/Artisan/blob/main/Artisan/UI/KTK/NativeCraftAll.cs
+
+Version 0.1.5 anchors FC deposit controls above the gil balance (ULD node 17), using the actual texture path from History (node 104, background 3). The saddlebag button sits inside the footer, 48 units above the root bottom. Verified FC anchors and button texture geometry against the installed game ULD; live appearance still requires confirmation.

@@ -2,6 +2,7 @@ using System.Numerics;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Controllers;
 using KamiToolKit.Nodes;
+using KamiToolKit.Extensions;
 using Dalamud.Plugin.Services;
 
 namespace Aetherworks.Windows;
@@ -19,6 +20,7 @@ public sealed unsafe class NativeEntrustButtons : IDisposable
     private readonly bool chest;
     private TextButtonNode? current, all;
     private bool errorLogged;
+    private string? chestTexture;
 
     public NativeEntrustButtons(string addonName, Func<EntrustButtonState> state, Action<bool> clicked, IPluginLog log, IFramework framework)
     {
@@ -58,9 +60,15 @@ public sealed unsafe class NativeEntrustButtons : IDisposable
         try
         {
             var view = state();
-            // Chest's unused left column below Gil; saddlebag button immediately below
-            // its bottom edge. Never create a rectangular background over the item grid.
-            current.Position = chest ? new Vector2(16, 246) : new Vector2(16, addon->RootNode->Height + 4);
+            // FreeCompanyChest.uld: node 17 is the gil balance container, not the Gil tab.
+            // Stack upwards from it; leave the game's controls and item grid untouched.
+            var balance = chest ? addon->GetNodeById(17) : null;
+            var showAll = view.AllTabs && !view.Running;
+            current.Position = chest
+                ? new Vector2(balance != null ? balance->X : 14,
+                    (balance != null ? balance->Y : addon->RootNode->Height - 80) - (showAll ? 68 : 36))
+                : new Vector2(16, addon->RootNode->Height - 48);
+            if (chest) MatchChestTexture(addon);
             current.IsVisible = view.Visible;
             current.IsEnabled = view.Running || view.Ready;
             current.String = view.Running ? "Stop" : "Entrust Duplicates";
@@ -80,6 +88,28 @@ public sealed unsafe class NativeEntrustButtons : IDisposable
             Report(ex);
         }
     }
+    private void MatchChestTexture(AtkUnitBase* addon)
+    {
+        // Read the actual themed texture from History (ULD node 104, background 3).
+        // The global theme resolver can differ from the texture used by this addon.
+        // Load our own texture reference; never share ownership of native assets.
+        var history = addon->GetComponentNodeById(104);
+        if (history == null || history->Component == null) return;
+        var uld = &history->Component->UldManager;
+        for (var i = 0; i < uld->NodeListCount; i++)
+        {
+            var node = uld->NodeList[i];
+            if (node == null || node->NodeId != 3 || node->Type != NodeType.NineGrid) continue;
+            var background = (AtkNineGridNode*)node;
+            if (background->PartsList == null || background->PartId >= background->PartsList->PartCount) return;
+            var path = background->PartsList->Parts[background->PartId].LoadedPath;
+            if (string.IsNullOrEmpty(path) || path == chestTexture) return;
+            current!.BackgroundNode.PartsList[0]->LoadTexture(path, resolveTheme: false);
+            all?.BackgroundNode.PartsList[0]->LoadTexture(path, resolveTheme: false);
+            chestTexture = path;
+            return;
+        }
+    }
     private void Click(bool allTabs)
     {
         try
@@ -97,6 +127,7 @@ public sealed unsafe class NativeEntrustButtons : IDisposable
     }
     private void Clear()
     {
+        chestTexture = null;
         all?.Dispose(); all = null;
         current?.Dispose(); current = null;
     }
