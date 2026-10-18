@@ -1,8 +1,6 @@
-using System.Numerics;
+using Aetherworks.Windows;
 using Aetherworks.Transfers;
 using Aetherworks.Tweaks;
-using Dalamud.Bindings.ImGui;
-using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -11,12 +9,13 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace Aetherworks.Features;
 
-public sealed class SaddlebagEntrustDuplicates(IDalamudPluginInterface pi, IFramework framework,
+public sealed class SaddlebagEntrustDuplicates(IFramework framework,
     IGameGui gui, IPlayerState player, IDataManager data, IPluginLog log) : ITweak
 {
     private readonly DuplicateTransfer transfer = new();
     private readonly LiveTransferInventory inventoryReader = new(data);
     private bool enabled;
+    private NativeEntrustButtons? buttons;
     private bool errorLogged;
     private ulong character;
     private long nextMove;
@@ -29,7 +28,8 @@ public sealed class SaddlebagEntrustDuplicates(IDalamudPluginInterface pi, IFram
     public void Enable()
     {
         if (enabled) return;
-        pi.UiBuilder.Draw += Draw;
+        buttons = new NativeEntrustButtons("InventoryBuddy", ButtonState, Click, log);
+        buttons.Enable();
         framework.Update += Update;
         enabled = true;
     }
@@ -37,7 +37,8 @@ public sealed class SaddlebagEntrustDuplicates(IDalamudPluginInterface pi, IFram
     public void Disable()
     {
         enabled = false;
-        pi.UiBuilder.Draw -= Draw;
+        buttons?.Dispose();
+        buttons = null;
         framework.Update -= Update;
         transfer.Stop("");
         readyAt = 0;
@@ -120,50 +121,17 @@ public sealed class SaddlebagEntrustDuplicates(IDalamudPluginInterface pi, IFram
         return false;
     }
 
-    private void Draw()
+    private EntrustButtonState ButtonState() => new(enabled && Visible(),
+        readyAt != 0 && Environment.TickCount64 >= readyAt && character == player.ContentId,
+        transfer.Running, false, transfer.Status);
+
+    private void Click(bool _)
     {
         if (!enabled || !Visible()) return;
-        try
-        {
-            var addon = gui.GetAddonByName("InventoryBuddy");
-            var viewport = ImGui.GetMainViewport();
-            var size = new Vector2(Math.Min(370 * ImGui.GetIO().FontGlobalScale, viewport.WorkSize.X),
-                ImGui.GetTextLineHeightWithSpacing() * 5 + ImGui.GetStyle().WindowPadding.Y * 2);
-            var position = viewport.Pos + new Vector2(addon.X, addon.Y + addon.Height * addon.Scale + 6);
-            position = Vector2.Clamp(position, viewport.WorkPos, Vector2.Max(viewport.WorkPos, viewport.WorkPos + viewport.WorkSize - size));
-            ImGui.SetNextWindowPos(position);
-            ImGui.SetNextWindowSize(size);
-            ImGui.SetNextWindowViewport(viewport.ID);
-            var visible = ImGui.Begin("###AetherworksEntrustSaddlebag", ImGuiWindowFlags.NoTitleBar |
-                ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoFocusOnAppearing);
-            try
-            {
-                if (!visible) return;
-                ImGui.TextUnformatted("Regular saddlebag");
-                if (transfer.Running)
-                {
-                    if (ImGui.Button("Stop")) transfer.Stop("Stopped. A move already sent may still finish.");
-                }
-                else
-                {
-                    var ready = readyAt != 0 && Environment.TickCount64 >= readyAt && character == player.ContentId;
-                    ImGui.BeginDisabled(!ready);
-                    try
-                    {
-                        if (ImGui.Button("Entrust Duplicates"))
-                        {
-                            var view = ReadLive();
-                            if (view is null) transfer.Stop("Inventory or saddlebag data is not ready.");
-                            else { transfer.Start(view); nextMove = 0; }
-                        }
-                    }
-                    finally { ImGui.EndDisabled(); }
-                }
-                if (transfer.Status.Length > 0) ImGui.TextWrapped(transfer.Status);
-            }
-            finally { ImGui.End(); }
-        }
-        catch (Exception ex) { Fail(ex); }
+        if (transfer.Running) { transfer.Stop("Stopped. A move already sent may still finish."); return; }
+        var view = ReadLive();
+        if (view is null) transfer.Stop("Inventory or saddlebag data is not ready.");
+        else { transfer.Start(view); nextMove = 0; }
     }
 
     private void Fail(Exception ex)

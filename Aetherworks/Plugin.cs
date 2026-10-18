@@ -29,6 +29,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         this.pluginInterface = pluginInterface;
         this.commands = commands;
+        KamiToolKit.KamiToolKitLibrary.Initialize(pluginInterface);
         var config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         config.EnabledTweaks ??= new(StringComparer.Ordinal);
 
@@ -37,14 +38,14 @@ public sealed class Plugin : IDalamudPlugin
         ownership = new OwnershipTracker(pluginInterface, framework, player, gui, log, data);
         tooltip = new OwnershipTooltipPanel(gui, ownership, appearances, interop, scanner, log);
         var actionConveniences = new ActionConveniences(framework, condition, objects, targets, player, interop, scanner, data, log);
-        var fcChest = new FcChestEntrustDuplicates(pluginInterface, framework, gui, player, data, log);
+        var fcChest = new FcChestEntrustDuplicates(framework, gui, player, data, log);
         ITweak[] registeredTweaks = [new ItemLocationTooltips(tooltip), new GlamourOwnershipTooltips(tooltip),
             new ActionConvenienceTweak(actionConveniences, ActionConvenience.Dismount),
             new ActionConvenienceTweak(actionConveniences, ActionConvenience.CastCancel),
             new ActionConvenienceTweak(actionConveniences, ActionConvenience.Target),
             new ActionConvenienceTweak(actionConveniences, ActionConvenience.ChangeTarget),
             new RecipeMaterialLocations(lifecycle, gui, data, ownership, tooltip, log),
-            new SaddlebagEntrustDuplicates(pluginInterface, framework, gui, player, data, log),
+            new SaddlebagEntrustDuplicates(framework, gui, player, data, log),
             fcChest, new FcChestAllTabs(fcChest),
             new IncludeFcChestOwnership(ownership),
             new PreventDuplicateGlamourStorage(lifecycle, interop, gui, chat, log, ownership, appearances)];
@@ -75,5 +76,6 @@ public sealed class Plugin : IDalamudPlugin
         tweaks.Dispose();
         tooltip.Dispose();
         ownership.Dispose();
+        KamiToolKit.KamiToolKitLibrary.Dispose();
     }
 }

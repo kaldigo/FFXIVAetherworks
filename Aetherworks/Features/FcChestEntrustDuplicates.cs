@@ -1,9 +1,7 @@
-using System.Numerics;
+using Aetherworks.Windows;
 using Aetherworks.Transfers;
 using Aetherworks.Ownership;
 using Aetherworks.Tweaks;
-using Dalamud.Bindings.ImGui;
-using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -11,12 +9,13 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace Aetherworks.Features;
 
-public sealed class FcChestEntrustDuplicates(IDalamudPluginInterface pi, IFramework framework,
+public sealed class FcChestEntrustDuplicates(IFramework framework,
     IGameGui gui, IPlayerState player, IDataManager data, IPluginLog log) : ITweak
 {
     private readonly DuplicateTransfer transfer = new("FC chest");
     private readonly LiveTransferInventory inventory = new(data, requireTradable: true);
     private bool enabled;
+    private NativeEntrustButtons? buttons;
     private bool errorLogged;
     private (ulong Character, uint Page)? context;
     private long readyAt;
@@ -41,7 +40,8 @@ public sealed class FcChestEntrustDuplicates(IDalamudPluginInterface pi, IFramew
     public void Enable()
     {
         if (enabled) return;
-        pi.UiBuilder.Draw += Draw;
+        buttons = new NativeEntrustButtons("FreeCompanyChest", ButtonState, Click, log);
+        buttons.Enable();
         framework.Update += Update;
         enabled = true;
     }
@@ -49,7 +49,8 @@ public sealed class FcChestEntrustDuplicates(IDalamudPluginInterface pi, IFramew
     public void Disable()
     {
         enabled = false;
-        pi.UiBuilder.Draw -= Draw;
+        buttons?.Dispose();
+        buttons = null;
         framework.Update -= Update;
         Stop("");
         context = null;
@@ -184,58 +185,29 @@ public sealed class FcChestEntrustDuplicates(IDalamudPluginInterface pi, IFramew
         return true;
     }
 
-    private void Draw()
+    private EntrustButtonState ButtonState()
     {
-        if (!enabled) return;
-        try
+        var page = CurrentPage();
+        return new(enabled && page is not null,
+            page is not null && context == (player.ContentId, page.Value) && Environment.TickCount64 >= readyAt,
+            transfer.Running || tabs.Running, ShowAllTabs, transfer.Status);
+    }
+
+    private void Click(bool allTabs)
+    {
+        var page = CurrentPage();
+        if (!enabled || page is null) return;
+        if (transfer.Running || tabs.Running) { Stop("Stopped. A move already sent may still finish."); return; }
+        if (allTabs)
         {
-            var page = CurrentPage();
-            if (page is null) return;
-            var addon = gui.GetAddonByName("FreeCompanyChest");
-            var viewport = ImGui.GetMainViewport();
-            var size = new Vector2(Math.Min(370 * ImGui.GetIO().FontGlobalScale, viewport.WorkSize.X),
-                ImGui.GetTextLineHeightWithSpacing() * (ShowAllTabs ? 7 : 5) + ImGui.GetStyle().WindowPadding.Y * 2);
-            var position = viewport.Pos + new Vector2(addon.X, addon.Y + addon.Height * addon.Scale + 6);
-            position = Vector2.Clamp(position, viewport.WorkPos, Vector2.Max(viewport.WorkPos, viewport.WorkPos + viewport.WorkSize - size));
-            ImGui.SetNextWindowPos(position);
-            ImGui.SetNextWindowSize(size);
-            ImGui.SetNextWindowViewport(viewport.ID);
-            var visible = ImGui.Begin("###AetherworksEntrustFcChest", ImGuiWindowFlags.NoTitleBar |
-                ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoFocusOnAppearing);
-            try
-            {
-                if (!visible) return;
-                ImGui.TextUnformatted($"FC chest — Tab {page.Value - (uint)InventoryType.FreeCompanyPage1 + 1}");
-                if (transfer.Running || tabs.Running)
-                {
-                    if (ImGui.Button("Stop")) Stop("Stopped. A move already sent may still finish.");
-                }
-                else
-                {
-                    var ready = context == (player.ContentId, page.Value) && Environment.TickCount64 >= readyAt;
-                    ImGui.BeginDisabled(!ready);
-                    try
-                    {
-                        if (ImGui.Button("Entrust Duplicates"))
-                        {
-                            var view = inventory.Read((InventoryType)page.Value);
-                            if (view is null) transfer.Stop("Inventory or current tab is not ready.");
-                            else { transfer.Start(view); nextMove = 0; }
-                        }
-                        if (ShowAllTabs && ImGui.Button("Entrust Duplicates — All Tabs"))
-                        {
-                            tabs.Start(player.ContentId, FcChestAccess.AccessiblePages(gui));
-                            tabStarted = false;
-                            NextTab(page.Value);
-                        }
-                    }
-                    finally { ImGui.EndDisabled(); }
-                }
-                if (transfer.Status.Length > 0) ImGui.TextWrapped(transfer.Status);
-            }
-            finally { ImGui.End(); }
+            tabs.Start(player.ContentId, FcChestAccess.AccessiblePages(gui));
+            tabStarted = false;
+            NextTab(page.Value);
+            return;
         }
-        catch (Exception ex) { Fail(ex); }
+        var view = inventory.Read((InventoryType)page.Value);
+        if (view is null) transfer.Stop("Inventory or current tab is not ready.");
+        else { transfer.Start(view); nextMove = 0; }
     }
 
     private void Fail(Exception ex)
