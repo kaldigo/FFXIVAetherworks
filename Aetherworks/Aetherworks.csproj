@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Author>kaldigo</Author>
     <Name>Aetherworks</Name>
     <Punchline>Small improvements, individually yours.</Punchline>

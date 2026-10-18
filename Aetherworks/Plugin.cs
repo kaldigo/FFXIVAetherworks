@@ -35,7 +35,7 @@ public sealed class Plugin : IDalamudPlugin
         // Register every feature here. Constructors must not activate behavior.
         var appearances = GameAppearanceCatalog.Create(data);
         ownership = new OwnershipTracker(pluginInterface, framework, player, gui, log, data);
-        tooltip = new OwnershipTooltipPanel(gui, ownership, appearances);
+        tooltip = new OwnershipTooltipPanel(gui, ownership, appearances, interop, scanner, log);
         var actionConveniences = new ActionConveniences(framework, condition, objects, targets, player, interop, scanner, data, log);
         var fcChest = new FcChestEntrustDuplicates(pluginInterface, framework, gui, player, data, log);
         ITweak[] registeredTweaks = [new ItemLocationTooltips(tooltip), new GlamourOwnershipTooltips(tooltip),
@@ -43,7 +43,7 @@ public sealed class Plugin : IDalamudPlugin
             new ActionConvenienceTweak(actionConveniences, ActionConvenience.CastCancel),
             new ActionConvenienceTweak(actionConveniences, ActionConvenience.Target),
             new ActionConvenienceTweak(actionConveniences, ActionConvenience.ChangeTarget),
-            new RecipeMaterialLocations(pluginInterface, gui, data, ownership, log),
+            new RecipeMaterialLocations(lifecycle, gui, data, ownership, tooltip, log),
             new SaddlebagEntrustDuplicates(pluginInterface, framework, gui, player, data, log),
             fcChest, new FcChestAllTabs(fcChest),
             new IncludeFcChestOwnership(ownership),
@@ -55,7 +55,6 @@ public sealed class Plugin : IDalamudPlugin
         windows.AddWindow(settings);
         commands.AddHandler("/aetherworks", new CommandInfo(OnCommand) { HelpMessage = "Open Aetherworks tweak settings." });
         pluginInterface.UiBuilder.Draw += windows.Draw;
-        pluginInterface.UiBuilder.Draw += tooltip.Draw;
         pluginInterface.UiBuilder.OpenMainUi += OpenSettings;
         pluginInterface.UiBuilder.OpenConfigUi += OpenSettings;
         tweaks.RestoreEnabled();
@@ -69,12 +68,12 @@ public sealed class Plugin : IDalamudPlugin
         if (disposed) return;
         disposed = true;
         pluginInterface.UiBuilder.Draw -= windows.Draw;
-        pluginInterface.UiBuilder.Draw -= tooltip.Draw;
         pluginInterface.UiBuilder.OpenMainUi -= OpenSettings;
         pluginInterface.UiBuilder.OpenConfigUi -= OpenSettings;
         commands.RemoveHandler("/aetherworks");
         windows.RemoveAllWindows();
         tweaks.Dispose();
+        tooltip.Dispose();
         ownership.Dispose();
     }
 }

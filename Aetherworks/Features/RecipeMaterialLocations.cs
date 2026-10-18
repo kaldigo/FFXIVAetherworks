@@ -1,112 +1,103 @@
-using System.Numerics;
 using Aetherworks.Crafting;
 using Aetherworks.Ownership;
 using Aetherworks.Tweaks;
-using Dalamud.Bindings.ImGui;
-using Dalamud.Plugin;
+using Aetherworks.Windows;
+using Dalamud.Game.Addon.Lifecycle;
+using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using Sheets = Lumina.Excel.Sheets;
 
 namespace Aetherworks.Features;
 
-public sealed class RecipeMaterialLocations(IDalamudPluginInterface pi, IGameGui gui, IDataManager data,
-    OwnershipTracker tracker, IPluginLog log) : ITweak
+public sealed unsafe class RecipeMaterialLocations(IAddonLifecycle lifecycle, IGameGui gui, IDataManager data,
+    OwnershipTracker tracker, OwnershipTooltipPanel tooltip, IPluginLog log) : ITweak
 {
-    private bool enabled;
-    private bool errorLogged;
-    private (uint Recipe, OwnershipStore Store, long Revision, bool FcChest, ulong Company)? last;
-    private IReadOnlyList<MaterialOwnership> materials = [];
+    private bool enabled, errorLogged;
+    private nint modifiedAddon;
+    private readonly Dictionary<nint, (byte[] Original, byte[] Applied)> edits = new();
     public string Id => "recipe-material-locations";
     public string Name => "Recipe Material Locations";
-    public string Description => "Show recipe ingredients held in retainers or the saddlebag, even when inventory has enough. Hover for quantities and missing storage data.";
+    public string Description => "Mark ingredients held elsewhere in the crafting window, even when inventory has enough. Hover the material for locations and totals.";
     public string Category => "Crafting";
 
     public void Enable()
     {
         if (enabled) return;
-        pi.UiBuilder.Draw += Draw;
+        tooltip.ShowRecipe = true;
+        lifecycle.RegisterListener(AddonEvent.PreDraw, "RecipeNote", Draw);
+        lifecycle.RegisterListener(AddonEvent.PreRefresh, "RecipeNote", Reset);
+        lifecycle.RegisterListener(AddonEvent.PreFinalize, "RecipeNote", Reset);
         enabled = true;
     }
-
     public void Disable()
     {
-        pi.UiBuilder.Draw -= Draw;
         enabled = false;
-        last = null;
-        materials = [];
+        lifecycle.UnregisterListener(Draw);
+        lifecycle.UnregisterListener(Reset);
+        var addon = gui.GetAddonByName("RecipeNote");
+        if (!addon.IsNull && addon.Address == modifiedAddon) Restore();
+        edits.Clear(); modifiedAddon = 0;
+        tooltip.RecipeMaterials.Clear(); tooltip.ShowRecipe = false;
         errorLogged = false;
     }
-
-    private unsafe void Draw()
+    private void Restore()
     {
-        if (!enabled || !tracker.HasCharacter) { last = null; return; }
+        foreach (var (address, edit) in edits)
+        {
+            var node = (AtkTextNode*)address;
+            if (node->NodeText.AsSpan().SequenceEqual(edit.Applied.AsSpan(0, edit.Applied.Length - 1)))
+                node->SetText(edit.Original);
+        }
+        edits.Clear();
+    }
+    private void Reset(AddonEvent _, AddonArgs args)
+    {
+        if (modifiedAddon == args.Addon.Address) Restore();
+        edits.Clear(); modifiedAddon = 0; tooltip.RecipeMaterials.Clear();
+    }
+    private void Mark(AtkTextNode* node, string prefix)
+    {
+        if (node == null) return;
+        var original = node->NodeText.AsSpan().ToArray().Append((byte)0).ToArray();
+        var applied = System.Text.Encoding.UTF8.GetBytes(prefix).Concat(original).ToArray();
+        node->SetText(applied);
+        edits[(nint)node] = (original, applied);
+    }
+    private void Draw(AddonEvent _, AddonArgs args)
+    {
+        if (!enabled) return;
         try
         {
-            var addon = gui.GetAddonByName("RecipeNote");
-            if (addon.IsNull || !addon.IsVisible) { last = null; return; }
+            if (modifiedAddon == args.Addon.Address) Restore(); else edits.Clear();
+            modifiedAddon = args.Addon.Address;
+            tooltip.RecipeMaterials.Clear();
+            if (!tracker.HasCharacter) return;
             var note = RecipeNote.Instance();
-            if (note == null || !note->IsRecipeListReady || note->RecipeList == null ||
-                note->RecipeList->Recipes == null) { last = null; return; }
-            var recipe = note->RecipeList->SelectedRecipe;
-            if (recipe == null || recipe->RecipeId == 0) { last = null; return; }
-            var key = ((uint)recipe->RecipeId, tracker.Store, tracker.Store.Revision, tracker.IncludeFcChest, tracker.CurrentFreeCompanyId);
-            if (last != key)
+            if (note == null || !note->IsRecipeListReady || note->RecipeList == null || note->RecipeList->Recipes == null) return;
+            var selected = note->RecipeList->SelectedRecipe;
+            if (selected == null || !data.GetExcelSheet<Sheets.Recipe>().TryGetRow(selected->RecipeId, out var row)) return;
+            var addon = (AddonRecipeNote*)args.Addon.Address;
+            for (var i = 0; i < Math.Min(row.Ingredient.Count, row.AmountIngredient.Count); i++)
             {
-                materials = [];
-                if (!data.GetExcelSheet<Sheets.Recipe>().TryGetRow(recipe->RecipeId, out var row)) return;
-                var ingredients = new List<RecipeMaterial>();
-                for (var i = 0; i < Math.Min(row.Ingredient.Count, row.AmountIngredient.Count); i++)
-                    if (row.Ingredient[i].RowId != 0 && row.AmountIngredient[i] > 0)
-                        ingredients.Add(new(row.Ingredient[i].RowId, row.Ingredient[i].Value.Name.ExtractText()));
-                materials = RecipeMaterialOwnership.Find(ingredients, tracker.Store, tracker.IncludeFcChest, tracker.CurrentFreeCompanyId);
-                last = key;
+                var id = row.Ingredient[i].RowId;
+                if (id == 0 || row.AmountIngredient[i] == 0) continue;
+                var material = RecipeMaterialOwnership.Find([new RecipeMaterial(id, row.Ingredient[i].Value.Name.ExtractText())],
+                    tracker.Store, tracker.IncludeFcChest, tracker.CurrentFreeCompanyId).FirstOrDefault();
+                if (material == null) continue;
+                tooltip.RecipeMaterials[id] = material;
+                // Recipe sheet slots 0–5 are materials; slots 6–7 are crystals.
+                // Prefix a compact marker, preserving the game's actual inventory counts.
+                var marker = material.OutsideQuantity > 0 ? "+ " : "? ";
+                if (i < addon->Ingredients.Length) Mark(addon->Ingredients[i].Name, marker);
+                else if (i - 6 < addon->Crystals.Length) Mark(addon->Crystals[i - 6].QuantityInInventory, marker);
             }
-            if (materials.Count == 0) return;
-            var viewport = ImGui.GetMainViewport();
-            var width = Math.Min(360 * ImGui.GetIO().FontGlobalScale, viewport.WorkSize.X);
-            var height = Math.Min((materials.Count * 2 + 2) * ImGui.GetTextLineHeightWithSpacing() +
-                ImGui.GetStyle().WindowPadding.Y * 2, viewport.WorkSize.Y * 0.6f);
-            var position = viewport.Pos + new Vector2(addon.X + addon.Width * addon.Scale + 8, addon.Y);
-            if (position.X + width > viewport.WorkPos.X + viewport.WorkSize.X)
-                position.X = viewport.Pos.X + addon.X - width - 8;
-            position = Vector2.Clamp(position, viewport.WorkPos,
-                Vector2.Max(viewport.WorkPos, viewport.WorkPos + viewport.WorkSize - new Vector2(width, height)));
-            ImGui.SetNextWindowPos(position);
-            ImGui.SetNextWindowSize(new(width, height));
-            ImGui.SetNextWindowViewport(viewport.ID);
-            var visible = ImGui.Begin("###AetherworksRecipeMaterials", ImGuiWindowFlags.NoTitleBar |
-                ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoSavedSettings |
-                ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNav);
-            try
-            {
-                if (!visible) return;
-                ImGui.TextUnformatted("Materials in storage");
-                foreach (var material in materials)
-                {
-                    ImGui.BeginGroup();
-                    ImGui.TextWrapped(material.Name);
-                    ImGui.TextUnformatted(material.Indicator);
-                    ImGui.EndGroup();
-                    if (!ImGui.IsItemHovered()) continue;
-                    ImGui.BeginTooltip();
-                    try
-                    {
-                        ImGui.TextUnformatted(material.Name);
-                        foreach (var location in material.Locations)
-                            ImGui.TextUnformatted($"{location.Label}: {location.Quantity?.ToString("N0") ?? "Missing"}");
-                        ImGui.Separator();
-                        ImGui.TextUnformatted($"{material.TotalLabel}: {material.Total:N0}");
-                    }
-                    finally { ImGui.EndTooltip(); }
-                }
-            }
-            finally { ImGui.End(); }
         }
         catch (Exception ex)
         {
-            last = null;
-            if (!errorLogged) log.Error(ex, "Could not display recipe material ownership");
+            if (!errorLogged) log.Error(ex, "Could not mark crafting ingredients");
             errorLogged = true;
         }
     }

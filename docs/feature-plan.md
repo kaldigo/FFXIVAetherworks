@@ -91,7 +91,7 @@ Show an ingredient indicator whenever copies are known outside inventory, even i
 - Use **Total known** when relevant snapshots are missing.
 - Missing-data information remains accessible when no outside copies have been found.
 
-Implementation: **Recipe Material Locations** now provides a compact panel beside the selected recipe, listing each relevant ingredient with its outside quantity or **Missing**. Hover for quantities by location and the total. It includes crystal ingredients and remains independent of the tooltip toggles. In-game layout and recipe-selection validation are pending.
+Implementation: **Recipe Material Locations** now marks native ingredient rows with **+** for outside stock or **?** for missing tracking data. Hover the material for quantities by location, Missing values and the total inside its native item tooltip. There are no ownership or crafting overlay windows. It includes crystal ingredients and remains independent of the tooltip toggles. In-game layout and recipe-selection validation are pending.
 
 ## Duplicate transfers
 
@@ -134,4 +134,5 @@ The two FC deposit gaps identified in this review have now been addressed (193 a
 No other major planned feature is absent. Armoury chest, equipped gear, premium saddlebag, retainer equipment and sale listings remain optional/unconfirmed extensions, not included in current ownership coverage. All item types refers to supported storage contents, not every possible storage category.
 
 First in-game pass should cover settings and shared tracking, then tooltips/matching and crafting, then glamour protection and transfers, and finally ReAction parity with only one plugin providing those action behaviours at a time. Native signatures, UI events, container freshness, outfit consolidation, controller input and UI scaling cannot be established by the pure automated checks. The initial review changed documentation only; its two transfer follow-ups are now implemented.
+
 
