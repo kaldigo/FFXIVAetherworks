@@ -8,6 +8,23 @@ namespace Aetherworks.Ownership;
 
 public static class FcChestAccess
 {
+    // Visibility describes tab availability, not deposit rights. View-only tabs count.
+    // Null is an unavailable/transitional UI read, never an empty authoritative roster.
+    public static unsafe int[]? VisibleTabs(IGameGui gui)
+    {
+        var current = CurrentPage(gui);
+        if (current is null) return null;
+        var chest = (AtkUnitBase*)gui.GetAddonByName("FreeCompanyChest").Address;
+        var tabs = new List<int>();
+        for (uint i = 0; i < 5; i++)
+        {
+            var node = chest->GetComponentNodeById(10 + i);
+            if (node == null || node->GetAsAtkComponentRadioButton() == null) return null;
+            if (node->IsVisible()) tabs.Add((int)i + 1);
+        }
+        return tabs.Contains((int)(current.Value - 20000) + 1) ? tabs.ToArray() : null;
+    }
+
     public static unsafe bool? CanDeposit(IGameGui gui, ulong character, uint page)
     {
         if (character == 0 || CurrentPage(gui) is null) return null;

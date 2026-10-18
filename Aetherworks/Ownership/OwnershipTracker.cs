@@ -29,6 +29,7 @@ public sealed class OwnershipTracker : IDisposable
     private readonly StableObservation<List<(uint ItemId, long Quantity)>> armoireObservation = new();
     private readonly StableObservation<Dictionary<string, string>> rosterObservation = new();
     private readonly StableObservation<List<(uint ItemId, long Quantity)>> chestObservation = new();
+    private readonly StableObservation<int[]> chestTabsObservation = new();
     private readonly string directory;
     private ulong character;
     private string? path;
@@ -103,6 +104,7 @@ public sealed class OwnershipTracker : IDisposable
         armoireObservation.Reset();
         rosterObservation.Reset();
         chestObservation.Reset();
+        chestTabsObservation.Reset();
         CurrentFreeCompanyId = 0;
         nextScan = nextSave = 0;
         if (id == 0) return;
@@ -125,7 +127,7 @@ public sealed class OwnershipTracker : IDisposable
         ScanPart("retainers", ScanRetainers, () => { retainerObservation.Reset(); rosterObservation.Reset(); });
         ScanPart("glamour dresser", ScanDresser, dresserObservation.Reset);
         ScanPart("armoire", ScanArmoire, armoireObservation.Reset);
-        ScanPart("FC chest", ScanFcChest, () => { chestObservation.Reset(); CurrentFreeCompanyId = 0; });
+        ScanPart("FC chest", ScanFcChest, () => { chestObservation.Reset(); chestTabsObservation.Reset(); CurrentFreeCompanyId = 0; });
         var addon = gui.GetAddonByName("InventoryBuddy");
         if (addon.IsNull || !addon.IsVisible) { saddlebagReadyAt = 0; return; }
         // Allow the newly opened storage UI to settle; also require both native containers loaded.
@@ -212,7 +214,12 @@ public sealed class OwnershipTracker : IDisposable
         // Never reuse a prior character/company's cached containers when identity is unavailable.
         CurrentFreeCompanyId = info != null && info->LocalContentId == character && company != null ? company->Id : 0;
         var page = FcChestAccess.CurrentPage(gui);
-        if (CurrentFreeCompanyId == 0 || page is null) { chestObservation.Reset(); return; }
+        if (CurrentFreeCompanyId == 0 || page is null) { chestObservation.Reset(); chestTabsObservation.Reset(); return; }
+        var tabs = FcChestAccess.VisibleTabs(gui);
+        if (tabs is null) chestTabsObservation.Reset();
+        else if (chestTabsObservation.Accept(CurrentFreeCompanyId.ToString(), tabs, Environment.TickCount64,
+                     (a, b) => a.SequenceEqual(b)))
+            Store.ReplaceFcChestTabs(CurrentFreeCompanyId, tabs);
         var items = ReadContainers([(InventoryType)page.Value]);
         if (items is null) { chestObservation.Reset(); return; }
         var key = OwnershipStore.FcChestKey(CurrentFreeCompanyId, (int)(page.Value - (uint)InventoryType.FreeCompanyPage1 + 1));

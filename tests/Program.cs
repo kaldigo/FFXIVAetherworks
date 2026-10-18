@@ -343,6 +343,7 @@ chestQueue.Advance(chestView, 5000);
 Check(!chestQueue.Running && chestQueue.Status.Contains("FC chest") && chestQueue.Moved == 0,
     "Rejected or unconfirmed chest moves stop with chest-specific feedback");
 var fcStore = new OwnershipStore();
+fcStore.ReplaceFcChestTabs(1234, [1, 2, 3, 4, 5]);
 fcStore.ReplaceRetainers(new Dictionary<string, string>());
 fcStore.Replace("inventory", [(700, 12)]);
 fcStore.Replace("saddlebag", []);
@@ -506,6 +507,37 @@ tabRun.Start(42, [20000, 20001, 20002]); tabRun.Next(20000, 0); tabRun.Observe(4
 tabRun.Next(20000, 2); tabRun.Observe(42, 20001, 3);
 Check(tabRun.Next(20001, 4) && tabRun.Page == 20002 && tabRun.Moved == 0,
     "Skipping a read-only tab advances to later tabs without counting a move");
+var fourTabs = new OwnershipStore();
+fourTabs.Load(fcStore.Serialize());
+fourTabs.ReplaceFcChestTabs(1234, [4, 2, 1, 3]);
+Check(fourTabs.ItemStorageLocations(true, 1234).Where(l => l.Label.StartsWith("FC Chest")).Select(l => l.Label)
+    .SequenceEqual(new[] { "FC Chest — Tab 1", "FC Chest — Tab 2", "FC Chest — Tab 3", "FC Chest — Tab 4" }),
+    "Only available FC tabs are enumerated in order");
+fourTabs.Replace(OwnershipStore.FcChestKey(1234, 5), [(700, 999)]);
+Check(RecipeMaterialOwnership.Find([new(700, "Ore")], fourTabs, true, 1234).Single().Total == 50,
+    "Unavailable tab contents do not inflate crafting totals");
+Check(!OwnershipTooltip.Compose(700, fourTabs, catalog, fourTabs.ItemStorageLocations(true, 1234), true, false)
+    .Any(l => l.Contains("Tab 5")), "Unavailable fifth tab is absent from native tooltip results");
+var availableReload = new OwnershipStore(); availableReload.Load(fourTabs.Serialize());
+Check(availableReload.Snapshot.FcChestTabs[1234].SequenceEqual(new[] {1,2,3,4}), "Available tabs persist across reload");
+var unchangedRevision = availableReload.Revision; availableReload.ReplaceFcChestTabs(1234, [1,2,3,4]);
+Check(availableReload.Revision == unchangedRevision && !availableReload.Dirty, "Unchanged tab observations avoid redundant saves");
+availableReload.ReplaceFcChestTabs(1234, [1,2,3,4,5]);
+Check(availableReload.Revision > unchangedRevision && availableReload.Dirty &&
+    availableReload.ItemStorageLocations(true,1234).Any(l => l.Label == "FC Chest — Tab 5"), "Unlocking another tab refreshes results");
+var legacyFcSnapshot = System.Text.Json.Nodes.JsonNode.Parse(fcStore.Serialize())!.AsObject(); legacyFcSnapshot.Remove("FcChestTabs");
+var migrated = new OwnershipStore(); migrated.Load(legacyFcSnapshot.ToJsonString());
+Check(migrated.Snapshot.Locations.ContainsKey(fcTab1) && migrated.Find(700, migrated.ItemStorageLocations(true,1234))
+    .Single(l => l.Label == "FC Chest").Quantity is null, "Older snapshots retain contents and show one Missing until availability is observed");
+migrated.ReplaceFcChestTabs(1234, [1,2,3,4]);
+Check(migrated.Find(700,migrated.ItemStorageLocations(true,1234)).Any(l => l.Label == "FC Chest — Tab 1" && l.Quantity == 38),
+    "Learning tab availability makes existing contents visible again");
+migrated.ReplaceFcChestTabs(4321, [1,2,3]);
+Check(migrated.Snapshot.FcChestTabs[1234].Length == 4 && migrated.Snapshot.FcChestTabs[4321].Length == 3,
+    "Availability stays isolated by FC");
+var unvisited = new OwnershipStore(); unvisited.ReplaceFcChestTabs(1234, [1,2,3,4]);
+Check(unvisited.Find(700, unvisited.ItemStorageLocations(true,1234)).Count(l => l.Label.StartsWith("FC Chest") && l.Quantity is null) == 4,
+    "Available but unread tabs remain Missing without needing deposit permission");
 Console.WriteLine($"Passed {checks} lifecycle, ownership, glamour, crafting, transfer and action checks.");
 
 sealed class FakeTweak(string id) : ITweak
@@ -521,4 +553,5 @@ sealed class FakeTweak(string id) : ITweak
     public void Enable() { Enables++; if (FailEnable) throw new InvalidOperationException(); }
     public void Disable() { Disables++; if (FailDisable) throw new InvalidOperationException(); }
 }
+
 

@@ -8,6 +8,7 @@ public sealed class OwnershipSnapshot
     public Dictionary<string, Dictionary<uint, long>> Locations { get; set; } = new();
     public Dictionary<string, string> Retainers { get; set; } = new();
     public bool RetainersKnown { get; set; }
+    public Dictionary<ulong, int[]> FcChestTabs { get; set; } = new();
 }
 
 public sealed record LocationResult(string Label, long? Quantity);
@@ -24,6 +25,8 @@ public sealed class OwnershipStore
         var snapshot = JsonSerializer.Deserialize<OwnershipSnapshot>(json)
             ?? throw new InvalidDataException("Empty ownership snapshot.");
         if (snapshot.Version != 1 || snapshot.Locations is null || snapshot.Retainers is null ||
+            snapshot.FcChestTabs is null || snapshot.FcChestTabs.Any(c => c.Key == 0 || c.Value is null ||
+                c.Value.Length == 0 || c.Value.Any(t => t is < 1 or > 5) || c.Value.Distinct().Count() != c.Value.Length) ||
             snapshot.Retainers.Any(r => !r.Key.StartsWith("retainer:", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(r.Value)) ||
             snapshot.Locations.Any(l => string.IsNullOrWhiteSpace(l.Key) || l.Value is null ||
                 l.Value.Any(i => i.Key == 0 || i.Value <= 0)))
@@ -87,6 +90,18 @@ public sealed class OwnershipStore
         return $"fc-chest:{companyId.ToString(System.Globalization.CultureInfo.InvariantCulture)}:{tab}";
     }
 
+    public void ReplaceFcChestTabs(ulong companyId, IEnumerable<int> tabs)
+    {
+        var available = tabs.Distinct().Order().ToArray();
+        if (companyId == 0 || available.Length == 0 || available.Any(t => t is < 1 or > 5))
+            throw new ArgumentException("A known FC chest must have valid available item tabs.");
+        if (Snapshot.FcChestTabs.TryGetValue(companyId, out var old) && old.SequenceEqual(available)) return;
+        Snapshot.FcChestTabs[companyId] = available;
+        // Keep contents for temporarily unavailable tabs, but exclude them from results.
+        Revision++;
+        Dirty = true;
+    }
+
     public IEnumerable<(string Id, string Label)> ItemStorageLocations(bool includeFcChest = false, ulong companyId = 0)
     {
         yield return ("inventory", "Inventory");
@@ -94,6 +109,8 @@ public sealed class OwnershipStore
         foreach (var location in RetainerLocations()) yield return location;
         if (!includeFcChest) yield break;
         if (companyId == 0) { yield return ("fc-chest-unobserved", "FC Chest"); yield break; }
-        for (var tab = 1; tab <= 5; tab++) yield return (FcChestKey(companyId, tab), $"FC Chest — Tab {tab}");
+        if (!Snapshot.FcChestTabs.TryGetValue(companyId, out var tabs))
+        { yield return ($"fc-chest-tabs-unobserved:{companyId}", "FC Chest"); yield break; }
+        foreach (var tab in tabs.Order()) yield return (FcChestKey(companyId, tab), $"FC Chest — Tab {tab}");
     }
 }
