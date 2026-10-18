@@ -1,0 +1,12 @@
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Author>kaldigo</Author>
+    <Name>Aetherworks</Name>
+    <Punchline>Small improvements, individually yours.</Punchline>
+    <Description>A modular collection of Final Fantasy XIV tweaks and quality-of-life tools. Every feature can be enabled or disabled independently.</Description>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+</Project>
