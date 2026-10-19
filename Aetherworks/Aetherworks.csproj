@@ -2,6 +2,7 @@
   <PropertyGroup>
     <Version>0.1.5</Version>
     <Author>kaldigo</Author>
+    <PackageProjectUrl>https://github.com/kaldigo/FFXIVAetherworks</PackageProjectUrl>
     <Name>Aetherworks</Name>
     <Punchline>Small improvements, individually yours.</Punchline>
     <Description>A modular collection of Final Fantasy XIV tweaks and quality-of-life tools. Every feature can be enabled or disabled independently.</Description>

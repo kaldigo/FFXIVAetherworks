@@ -1,0 +1,28 @@
+name: Validate pull request
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: ./.github/actions/build
+      - name: Validate package
+        shell: pwsh
+        run: |
+          $cfg=Get-Content release-config.json -Raw | ConvertFrom-Json
+          $manifest=Get-Content "$($cfg.build)/$($cfg.internal_name).json" -Raw | ConvertFrom-Json
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/package_release.py --tag "v$($manifest.AssemblyVersion)"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tools/check_package.py --tag "v$($manifest.AssemblyVersion)"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }

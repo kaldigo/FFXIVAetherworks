@@ -1,0 +1,15 @@
+{
+  "internal_name": "Aetherworks",
+  "repository": "kaldigo/FFXIVAetherworks",
+  "minimum_version": "0.1.5.0",
+  "project": "Aetherworks/Aetherworks.csproj",
+  "build": "Aetherworks/bin/Release",
+  "required_dlls": [
+    "Aetherworks.dll",
+    "KamiToolKit.dll"
+  ],
+  "licenses": {
+    "LICENSE": "LICENSE",
+    "KamiToolKit/LICENSE": "licenses/KamiToolKit.txt"
+  }
+}
