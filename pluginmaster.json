@@ -3,7 +3,7 @@
     "Author": "kaldigo",
     "Name": "Aetherworks",
     "InternalName": "Aetherworks",
-    "AssemblyVersion": "0.1.5.1",
+    "AssemblyVersion": "0.1.5.2",
     "Description": "A modular collection of Final Fantasy XIV tweaks and quality-of-life tools. Every feature can be enabled or disabled independently.",
     "ApplicableVersion": "any",
     "DalamudApiLevel": 15,
@@ -16,8 +16,8 @@
     "RepoUrl": "https://github.com/kaldigo/FFXIVAetherworks",
     "IconUrl": "https://raw.githubusercontent.com/kaldigo/FFXIVAetherworks/main/assets/icon.png",
     "Changelog": "Validated source update. Development preview; native acceptance remains separate.",
-    "DownloadLinkInstall": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.1.5.1/Aetherworks.zip",
-    "DownloadLinkUpdate": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.1.5.1/Aetherworks.zip",
-    "DownloadLinkTesting": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.1.5.1/Aetherworks.zip"
+    "DownloadLinkInstall": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.1.5.2/Aetherworks.zip",
+    "DownloadLinkUpdate": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.1.5.2/Aetherworks.zip",
+    "DownloadLinkTesting": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.1.5.2/Aetherworks.zip"
   }
 ]
