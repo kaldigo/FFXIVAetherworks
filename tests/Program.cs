@@ -6,6 +6,7 @@ using Aetherworks.Transfers;
 using Aetherworks.Actions;
 
 var checks = 0;
+checks += RetainerCaptureTests.Run();
 void Check(bool value, string name)
 {
     if (!value) throw new Exception(name);

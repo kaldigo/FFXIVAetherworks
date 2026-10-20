@@ -15,6 +15,7 @@ public sealed class SettingsWindow(TweakManager manager, OwnershipTracker owners
         ImGui.TextWrapped("Your collection of small improvements. Every tweak has its own toggle and starts disabled.");
         ImGui.TextWrapped("Ownership is collected even with tooltips disabled. Open your saddlebag, retainer list and each retainer's inventory, glamour dresser, armoire and each FC chest item tab to record their contents. Include FC Chest controls whether shared chest quantities appear in results.");
         if (ownership.Error is { } trackingError) ImGui.TextWrapped(trackingError);
+        ImGui.TextWrapped(ownership.RetainerStatus);
         if (manager.SaveError is { } saveError)
         {
             ImGui.TextWrapped(saveError);

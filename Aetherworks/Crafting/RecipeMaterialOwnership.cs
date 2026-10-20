@@ -25,13 +25,12 @@ public static class RecipeMaterialOwnership
             var rows = new List<LocationResult>();
             foreach (var (id, label) in locations)
             {
-                if (!store.Snapshot.Locations.TryGetValue(id, out var items))
+                if (!store.TryGetQuantity(id, ingredient.ItemId, out var quantity))
                 {
                     missing = true;
                     rows.Add(new(label, null));
                     continue;
                 }
-                var quantity = items.GetValueOrDefault(ingredient.ItemId);
                 total = checked(total + quantity);
                 if (id != "inventory") outside = checked(outside + quantity);
                 if (quantity > 0) rows.Add(new(label, quantity));

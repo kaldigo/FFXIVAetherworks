@@ -8,6 +8,7 @@
   <ItemGroup><Compile Include="../Aetherworks/Tweaks/*.cs" Link="Tweaks/%(Filename)%(Extension)" /></ItemGroup>
   <ItemGroup><Compile Include="../Aetherworks/Ownership/OwnershipStore.cs" Link="OwnershipStore.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Aetherworks/Ownership/StableObservation.cs" Link="StableObservation.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../Aetherworks/Ownership/RetainerCapture.cs" Link="RetainerCapture.cs" /></ItemGroup>
   <ItemGroup>
     <Compile Include="../Aetherworks/Actions/ActionRules.cs" Link="ActionRules.cs" />
     <Compile Include="../Aetherworks/Crafting/RecipeMaterialOwnership.cs" Link="RecipeMaterialOwnership.cs" />

@@ -24,7 +24,7 @@ public sealed class OwnershipTracker : IDisposable
     private readonly Dictionary<uint, uint[]> outfits;
     private readonly (uint Row, uint Item)[] cabinetItems;
     private readonly HashSet<uint> cabinetItemIds;
-    private readonly StableObservation<List<(uint ItemId, long Quantity)>> retainerObservation = new();
+    private readonly RetainerCapture retainerCapture = new();
     private readonly StableObservation<List<(uint ItemId, long Quantity)>> dresserObservation = new();
     private readonly StableObservation<List<(uint ItemId, long Quantity)>> armoireObservation = new();
     private readonly StableObservation<Dictionary<string, string>> rosterObservation = new();
@@ -48,6 +48,16 @@ public sealed class OwnershipTracker : IDisposable
     public string? Error => persistenceError ?? (failedCollectors.Count == 0 ? null :
         $"Could not refresh {string.Join(", ", failedCollectors)}. Previous snapshots are retained; retrying automatically.");
     public bool HasCharacter => character != 0 && character == player.ContentId;
+    public string RetainerStatus
+    {
+        get
+        {
+            var keys = Store.Snapshot.Retainers.Keys;
+            int Known(RetainerParts part) => keys.Count(k => Store.Snapshot.Locations.ContainsKey(k) &&
+                (Store.Snapshot.RetainerCoverage.GetValueOrDefault(k, RetainerParts.All) & part) != 0);
+            return $"Retainers: {Known(RetainerParts.Bags)}/{keys.Count} bag snapshots, {Known(RetainerParts.Crystals)}/{keys.Count} crystal snapshots. {retainerCapture.Status}";
+        }
+    }
 
     public OwnershipTracker(IDalamudPluginInterface pi, IFramework framework, IPlayerState player, IGameGui gui, IPluginLog log, IDataManager data)
     {
@@ -99,7 +109,7 @@ public sealed class OwnershipTracker : IDisposable
         path = null;
         loadFailed = false;
         saddlebagReadyAt = 0;
-        retainerObservation.Reset();
+        retainerCapture.Reset();
         dresserObservation.Reset();
         armoireObservation.Reset();
         rosterObservation.Reset();
@@ -124,7 +134,7 @@ public sealed class OwnershipTracker : IDisposable
     private unsafe void Scan()
     {
         ScanPart("inventory", () => ReadLocation("inventory", [InventoryType.Inventory1, InventoryType.Inventory2, InventoryType.Inventory3, InventoryType.Inventory4, InventoryType.Crystals]));
-        ScanPart("retainers", ScanRetainers, () => { retainerObservation.Reset(); rosterObservation.Reset(); });
+        ScanPart("retainers", ScanRetainers, () => { retainerCapture.Reset(); rosterObservation.Reset(); });
         ScanPart("glamour dresser", ScanDresser, dresserObservation.Reset);
         ScanPart("armoire", ScanArmoire, armoireObservation.Reset);
         ScanPart("FC chest", ScanFcChest, () => { chestObservation.Reset(); chestTabsObservation.Reset(); CurrentFreeCompanyId = 0; });
@@ -230,7 +240,7 @@ public sealed class OwnershipTracker : IDisposable
     private unsafe void ScanRetainers()
     {
         var manager = RetainerManager.Instance();
-        if (manager == null || !manager->IsReady) { rosterObservation.Reset(); retainerObservation.Reset(); return; }
+        if (manager == null || !manager->IsReady) { rosterObservation.Reset(); retainerCapture.Reset("Waiting for the retainer list."); return; }
         if (Visible("RetainerList"))
         {
             var roster = new Dictionary<string, string>();
@@ -245,19 +255,35 @@ public sealed class OwnershipTracker : IDisposable
 
         var order = ItemOrderModule.Instance();
         var active = manager->GetActiveRetainer();
-        if (order == null || order->ActiveRetainerId == 0 || active == null ||
-            active->RetainerId != order->ActiveRetainerId ||
-            !(Visible("InventoryRetainer") || Visible("InventoryRetainerLarge")))
-        { retainerObservation.Reset(); return; }
-        var key = OwnershipStore.RetainerKey(active->RetainerId);
-        // Only collect named retainers from this character's observed roster.
-        if (!Store.Snapshot.Retainers.ContainsKey(key)) { retainerObservation.Reset(); return; }
-        var items = ReadContainers([InventoryType.RetainerPage1, InventoryType.RetainerPage2, InventoryType.RetainerPage3,
-            InventoryType.RetainerPage4, InventoryType.RetainerPage5, InventoryType.RetainerPage6, InventoryType.RetainerPage7,
-            InventoryType.RetainerCrystals]);
-        if (items is null) { retainerObservation.Reset(); return; }
-        if (retainerObservation.Accept(key, items, Environment.TickCount64, (a, b) => a.SequenceEqual(b)))
-            Store.Replace(key, items);
+        bool visible = Visible("InventoryRetainer") || Visible("InventoryRetainerLarge");
+        if (order == null || active == null || order->ActiveRetainerId == 0 ||
+            active->RetainerId != order->ActiveRetainerId || !visible)
+        { retainerCapture.Reset(visible ? "Waiting for the inventory to match the selected retainer." : "Open a retainer inventory to refresh its contents."); return; }
+        Store.ObserveRetainer(active->RetainerId, active->NameString);
+        var inventory = InventoryManager.Instance();
+        if (inventory == null) { retainerCapture.Reset("Waiting for inventory data."); return; }
+        var bags = new List<(uint ItemId, long Quantity)>();
+        int capacity = 0;
+        bool readable = true;
+        for (uint i = 0; i < 7; i++)
+        {
+            var container = inventory->GetInventoryContainer((InventoryType)((uint)InventoryType.RetainerPage1 + i));
+            if (container == null || !container->IsLoaded || container->Size == 0) continue;
+            if (container->Size < 0 || container->Size > 175) { readable = false; break; }
+            capacity += container->Size;
+            for (int slot = 0; slot < container->Size; slot++)
+            {
+                var item = container->GetInventorySlot(slot);
+                if (item == null) { readable = false; break; }
+                if (item->ItemId != 0 && item->Quantity > 0)
+                    bags.Add((ItemUtil.GetBaseId(item->ItemId).ItemId, item->Quantity));
+            }
+        }
+        var crystalContainer = inventory->GetInventoryContainer(InventoryType.RetainerCrystals);
+        var crystals = crystalContainer != null && crystalContainer->Size == 18
+            ? ReadContainers([InventoryType.RetainerCrystals]) : null;
+        retainerCapture.Observe(Store, active->RetainerId, order->ActiveRetainerId, visible,
+            active->ItemCount, capacity, bags, readable, crystals, Environment.TickCount64);
     }
 
     private unsafe void ScanDresser()

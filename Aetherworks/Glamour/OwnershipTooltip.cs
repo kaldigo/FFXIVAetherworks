@@ -38,12 +38,12 @@ public static class OwnershipTooltip
         foreach (var location in locations)
         {
             if (!showItems && target is null) break;
-            if (!store.Snapshot.Locations.TryGetValue(location.Id, out var inventory))
+            if (!store.TryGetQuantity(location.Id, id, out var quantity))
             {
                 lines.Add($"{location.Label}: Missing");
                 continue;
             }
-            if (showItems && (target is null || !IsCollected(location.Id)) && inventory.TryGetValue(id, out var quantity))
+            if (showItems && (target is null || !IsCollected(location.Id)) && quantity > 0)
                 lines.Add($"{location.Label}: {quantity}");
         }
         return lines;
