@@ -1,9 +1,7 @@
+using Aetherworks.Features;
+using Aetherworks.Hotbars;
 using Aetherworks.Tweaks;
 using Aetherworks.Windows;
-using Aetherworks.Features;
-using Aetherworks.Ownership;
-using Aetherworks.Glamour;
-using Aetherworks.Actions;
 using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
@@ -18,45 +16,31 @@ public sealed class Plugin : IDalamudPlugin
     private readonly WindowSystem windows = new("Aetherworks");
     private readonly SettingsWindow settings;
     private readonly TweakManager tweaks;
-    private readonly OwnershipTracker ownership;
-    private readonly OwnershipTooltipPanel tooltip;
-    private readonly IFramework framework;
     private bool disposed;
 
     public Plugin(IDalamudPluginInterface pluginInterface, ICommandManager commands, IPluginLog log,
-        IFramework framework, IPlayerState player, IGameGui gui, IDataManager data,
-        IAddonLifecycle lifecycle, IGameInteropProvider interop, IChatGui chat,
-        ICondition condition, IObjectTable objects, ITargetManager targets, ISigScanner scanner)
+        IClientState client, IPlayerState player, IObjectTable objects, ICondition condition,
+        IGameInteropProvider interop, IChatGui chat, IFramework framework)
     {
         this.pluginInterface = pluginInterface;
         this.commands = commands;
-        this.framework = framework;
-        KamiToolKit.KamiToolKitLibrary.Initialize(pluginInterface);
         var config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         config.EnabledTweaks ??= new(StringComparer.Ordinal);
-
-        // Register every feature here. Constructors must not activate behavior.
-        var appearances = GameAppearanceCatalog.Create(data);
-        ownership = new OwnershipTracker(pluginInterface, framework, player, gui, log, data);
-        tooltip = new OwnershipTooltipPanel(gui, ownership, appearances, interop, scanner, log);
-        var actionConveniences = new ActionConveniences(framework, condition, objects, targets, player, interop, scanner, data, log);
-        var fcChest = new FcChestEntrustDuplicates(framework, gui, player, data, log);
-        ITweak[] registeredTweaks = [new ItemLocationTooltips(tooltip), new GlamourOwnershipTooltips(tooltip),
-            new ActionConvenienceTweak(actionConveniences, ActionConvenience.Dismount),
-            new ActionConvenienceTweak(actionConveniences, ActionConvenience.CastCancel),
-            new ActionConvenienceTweak(actionConveniences, ActionConvenience.Target),
-            new ActionConvenienceTweak(actionConveniences, ActionConvenience.ChangeTarget),
-            new RecipeMaterialLocations(lifecycle, gui, data, ownership, tooltip, log),
-            new SaddlebagEntrustDuplicates(framework, gui, player, data, log),
-            fcChest, new FcChestAllTabs(fcChest),
-            new IncludeFcChestOwnership(ownership),
-            new PreventDuplicateGlamourStorage(lifecycle, interop, gui, chat, log, ownership, appearances)];
-        tweaks = new TweakManager(registeredTweaks, config.EnabledTweaks,
+        // Old choices never opt a character into the new feature.
+        config.EnabledTweaks.IntersectWith([ReturnViaTeleport.FeatureId, SharedHotbarSync.FeatureId]);
+        var fallback = new ReturnViaTeleport(client, player, objects, condition, interop, chat, log,
+            () => config.SkipPaidTeleportConfirmation);
+        var hotbarSync = new SharedHotbarSync(framework,
+            new NativeSharedHotbars(client, player, objects, condition),
+            new SharedHotbarStore(Path.Combine(pluginInterface.GetPluginConfigDirectory(), "shared-hotbars")), log);
+        tweaks = new TweakManager([fallback, hotbarSync], config.EnabledTweaks,
             () => pluginInterface.SavePluginConfig(config), (ex, message) => log.Error(ex, message));
-        settings = new SettingsWindow(tweaks, ownership);
-        settings.ConfigureSize();
+        settings = new SettingsWindow(tweaks, config, fallback, hotbarSync);
+        var confirmation = new ReturnConfirmationWindow(fallback);
+        fallback.ConfirmationRequested += confirmation.Open;
         windows.AddWindow(settings);
-        commands.AddHandler("/aetherworks", new CommandInfo(OnCommand) { HelpMessage = "Open Aetherworks tweak settings." });
+        windows.AddWindow(confirmation);
+        commands.AddHandler("/aetherworks", new CommandInfo(OnCommand) { HelpMessage = "Open Aetherworks settings." });
         pluginInterface.UiBuilder.Draw += windows.Draw;
         pluginInterface.UiBuilder.OpenMainUi += OpenSettings;
         pluginInterface.UiBuilder.OpenConfigUi += OpenSettings;
@@ -76,8 +60,5 @@ public sealed class Plugin : IDalamudPlugin
         commands.RemoveHandler("/aetherworks");
         windows.RemoveAllWindows();
         tweaks.Dispose();
-        tooltip.Dispose();
-        ownership.Dispose();
-        framework.RunOnFrameworkThread(KamiToolKit.KamiToolKitLibrary.Dispose).GetAwaiter().GetResult();
     }
 }

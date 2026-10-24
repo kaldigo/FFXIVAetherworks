@@ -16,11 +16,10 @@ def package(root,tag,changelog='Validated source update. Development preview; na
     manifest.update(DownloadLinkInstall=url,DownloadLinkUpdate=url,DownloadLinkTesting=url)
     out=root/'artifacts';out.mkdir(exist_ok=True);archive=out/(name+'.zip')
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
-        for item in sorted(build.rglob('*')):
-            if not item.is_file():continue
-            relative=item.relative_to(build)
-            if len(relative.parts)==1 and (item.suffix=='.dll' or item.name==name+'.deps.json') or relative.parts[0] in ['Resources','Assets','images','runtimes']:
-                z.write(item,relative.as_posix())
+        # Explicit dependencies exclude stale incremental outputs from removed features.
+        for dll in cfg['required_dlls']:z.write(build/dll,dll)
+        deps=build/(name+'.deps.json')
+        if deps.is_file():z.write(deps,deps.name)
         z.writestr(name+'.json',json.dumps(manifest,indent=2)+'\n')
         z.write(icon,'images/icon.png')
         for source,target in cfg['licenses'].items():z.write(root/source,target)

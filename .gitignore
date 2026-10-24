@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 .vs/
 *.user
+
+# Retained local copy of the removed dependency; no longer built or packaged.
+/KamiToolKit/

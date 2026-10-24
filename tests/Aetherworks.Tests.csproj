@@ -5,19 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
-  <ItemGroup><Compile Include="../Aetherworks/Tweaks/*.cs" Link="Tweaks/%(Filename)%(Extension)" /></ItemGroup>
-  <ItemGroup><Compile Include="../Aetherworks/Ownership/OwnershipStore.cs" Link="OwnershipStore.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="../Aetherworks/Ownership/StableObservation.cs" Link="StableObservation.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="../Aetherworks/Ownership/RetainerCapture.cs" Link="RetainerCapture.cs" /></ItemGroup>
   <ItemGroup>
-    <Compile Include="../Aetherworks/Actions/ActionRules.cs" Link="ActionRules.cs" />
-    <Compile Include="../Aetherworks/Crafting/RecipeMaterialOwnership.cs" Link="RecipeMaterialOwnership.cs" />
-    <Compile Include="../Aetherworks/Transfers/DuplicateTransfer.cs" Link="DuplicateTransfer.cs" />
-    <Compile Include="../Aetherworks/Transfers/ChestDeposit.cs" Link="ChestDeposit.cs" />
-    <Compile Include="../Aetherworks/Transfers/ChestTabRun.cs" Link="ChestTabRun.cs" />
-    <Compile Include="../Aetherworks/Transfers/ChestPermissions.cs" Link="ChestPermissions.cs" />
-    <Compile Include="../Aetherworks/Glamour/AppearanceCatalog.cs" Link="AppearanceCatalog.cs" />
-    <Compile Include="../Aetherworks/Glamour/OwnershipTooltip.cs" Link="OwnershipTooltip.cs" />
-    <Compile Include="../Aetherworks/Glamour/DuplicateGlamourProtection.cs" Link="DuplicateGlamourProtection.cs" />
+    <Compile Include="../Aetherworks/Tweaks/*.cs" Link="Tweaks/%(Filename)%(Extension)" />
+    <Compile Include="../Aetherworks/Actions/*.cs" Link="Actions/%(Filename)%(Extension)" />
+    <Compile Include="../Aetherworks/Hotbars/Shared*.cs" Link="Hotbars/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
