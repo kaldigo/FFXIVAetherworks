@@ -3,21 +3,21 @@
     "Author": "kaldigo",
     "Name": "Aetherworks",
     "InternalName": "Aetherworks",
-    "AssemblyVersion": "0.1.5.2",
-    "Description": "A modular collection of Final Fantasy XIV tweaks and quality-of-life tools. Every feature can be enabled or disabled independently.",
+    "AssemblyVersion": "0.2.1.1",
+    "Description": "Teleport home while Return is on cooldown, with optional fare confirmation. Sync shared hotbars between PvE and PvP: initially copy PvE, then synchronize changes in either direction. Each feature is independently enabled.",
     "ApplicableVersion": "any",
     "DalamudApiLevel": 15,
     "LoadRequiredState": 0,
     "LoadSync": false,
     "CanUnloadAsync": false,
     "LoadPriority": 0,
-    "Punchline": "Small improvements, individually yours.",
+    "Punchline": "Paid Return fallback and shared PvE/PvP hotbar sync.",
     "AcceptsFeedback": true,
     "RepoUrl": "https://github.com/kaldigo/FFXIVAetherworks",
     "IconUrl": "https://raw.githubusercontent.com/kaldigo/FFXIVAetherworks/main/assets/icon.png",
-    "Changelog": "Validated source update. Development preview; native acceptance remains separate.",
-    "DownloadLinkInstall": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.1.5.2/Aetherworks.zip",
-    "DownloadLinkUpdate": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.1.5.2/Aetherworks.zip",
-    "DownloadLinkTesting": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.1.5.2/Aetherworks.zip"
+    "Changelog": "0.2.1: Add Shared Hotbar Sync as the second feature. Initially copy shared PvE hotbar assignments into PvP, then sync edits and clears in both directions with per-character history, mode-appropriate Sprint, conflict choices and local backups. Include shared cross hotbars. Pause during combat/loading and on failed writes or unreadable history. Keep Return via Teleport and its optional confirmation-skip setting in the Pandora-style feature browser. All former Aetherworks features and the KamiToolKit dependency remain removed. Native in-game acceptance remains pending.",
+    "DownloadLinkInstall": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.1/Aetherworks.zip",
+    "DownloadLinkUpdate": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.1/Aetherworks.zip",
+    "DownloadLinkTesting": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.1/Aetherworks.zip"
   }
 ]
