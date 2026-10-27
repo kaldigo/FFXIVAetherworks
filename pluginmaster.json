@@ -3,7 +3,7 @@
     "Author": "kaldigo",
     "Name": "Aetherworks",
     "InternalName": "Aetherworks",
-    "AssemblyVersion": "0.2.1.2",
+    "AssemblyVersion": "0.2.1.3",
     "Description": "Teleport home while Return is on cooldown, sync shared hotbars between PvE and PvP, and withdraw saddlebag stacks while leaving one for easy duplicate entrusting. Each feature is independently enabled.",
     "ApplicableVersion": "any",
     "DalamudApiLevel": 15,
@@ -15,9 +15,9 @@
     "AcceptsFeedback": true,
     "RepoUrl": "https://github.com/kaldigo/FFXIVAetherworks",
     "IconUrl": "https://raw.githubusercontent.com/kaldigo/FFXIVAetherworks/main/assets/icon.png",
-    "Changelog": "0.2.1.2: Add Saddlebag Withdraw All but One, disabled by default under Items and storage. Right-click a saddlebag stack of two or more to withdraw its quantity minus one, retaining a copy for Pandora's Entrust Duplicates matching. Covers regular and premium saddlebag tabs, preserves HQ/NQ, and checks the source and native quantity dialog before one submission. Keeps Return via Teleport and Shared Hotbar Sync. Native in-game acceptance remains pending.",
-    "DownloadLinkInstall": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.2/Aetherworks.zip",
-    "DownloadLinkUpdate": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.2/Aetherworks.zip",
-    "DownloadLinkTesting": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.2/Aetherworks.zip"
+    "Changelog": "0.2.1.3: Fix Withdraw all but one doing nothing: use the saddlebag's Remove from Saddlebag action and How many do you want to remove? prompt, rather than retainer Retrieve Quantity/withdraw labels. Allow the original context menu time to close. Report unavailable native actions and unexpected quantity dialogs in chat instead of failing silently. Native in-game acceptance remains pending.",
+    "DownloadLinkInstall": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.3/Aetherworks.zip",
+    "DownloadLinkUpdate": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.3/Aetherworks.zip",
+    "DownloadLinkTesting": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.3/Aetherworks.zip"
   }
 ]
