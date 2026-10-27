@@ -19,7 +19,7 @@ These checks require a live game session; automated logic tests do not validate 
 
 1. Enable the feature under Items and storage. Right-click stacks of 1, 2 and 99: no extra action for 1; Withdraw all but one should move 1 and 98 respectively for the others, leaving one in the original slot. Check both regular saddlebag pages and premium tabs if available.
 2. Test HQ and NQ stacks separately, then use Pandora's Entrust Duplicates button to return matching items. Check that other stacks are untouched and the reserved copy remains the match.
-3. Verify normal Retrieve Quantity and unrelated numeric dialogs remain manual. Test full inventory, localized clients, and plugins adding context-menu entries. Unavailable or mismatched actions must not submit another menu option.
+3. Verify normal Remove All from Saddlebag, Remove from Saddlebag, retainer Retrieve Quantity and unrelated numeric dialogs remain manual. Test full inventory, localized clients, and plugins adding context-menu entries. Unavailable or mismatched actions must not submit another menu option and should produce a chat error for diagnosis.
 4. Change the stack, close/switch the bag, disable the feature, or reload during the operation. No stale automatic submission should follow. Any quantity dialog left after cancellation is for manual handling. Re-enable/reload and verify the feature choice persists.
 
 ## Shared Hotbar Sync

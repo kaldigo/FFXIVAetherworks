@@ -12,7 +12,7 @@ using Sheets = Lumina.Excel.Sheets;
 namespace Aetherworks.Features;
 
 public sealed unsafe class SaddlebagWithdrawLeaveOne(IContextMenu menus, IFramework framework,
-    IGameGui gui, IPlayerState player, IDataManager data, IPluginLog log) : ITweak
+    IGameGui gui, IPlayerState player, IDataManager data, IPluginLog log, IChatGui chat) : ITweak
 {
     private bool enabled;
     private bool openingNativeMenu;
@@ -34,8 +34,11 @@ public sealed unsafe class SaddlebagWithdrawLeaveOne(IContextMenu menus, IFramew
     {
         if (enabled) return;
         var sheet = data.GetExcelSheet<Sheets.Addon>();
-        quantityLabel = sheet.GetRow(773).Text.ExtractText();
-        quantityPrompt = sheet.GetRow(914).Text.ExtractText();
+        // Saddlebag menu: 887 = Remove All from Saddlebag; 888 = Remove from Saddlebag.
+        // The latter opens 889 (How many do you want to remove?). Retainer labels
+        // 773/914 do not occur on this native path.
+        quantityLabel = sheet.GetRow(888).Text.ExtractText();
+        quantityPrompt = sheet.GetRow(889).Text.ExtractText();
         menus.OnMenuOpened += OnMenuOpened;
         framework.Update += Update;
         enabled = true;
@@ -113,15 +116,18 @@ public sealed unsafe class SaddlebagWithdrawLeaveOne(IContextMenu menus, IFramew
         if (!enabled || pending is not { } request) return;
         try
         {
-            if (Environment.TickCount64 >= deadline || !Unchanged(request)) { pending = null; return; }
+            if (!Unchanged(request)) { pending = null; return; }
+            if (Environment.TickCount64 >= deadline)
+            { Stop("The saddlebag withdrawal timed out. No automatic retry was sent."); return; }
             if (!waitingForQuantity)
             {
                 var numeric = gui.GetAddonByName("InputNumeric");
                 var context = gui.GetAddonByName("ContextMenu");
-                if ((!numeric.IsNull && numeric.IsVisible) || (!context.IsNull && context.IsVisible))
-                { pending = null; return; }
+                if (!numeric.IsNull && numeric.IsVisible) { pending = null; return; }
+                // Native context-menu closing can take more than one framework update.
+                if (!context.IsNull && context.IsVisible) return;
                 waitingForQuantity = true;
-                if (!OpenQuantity(request)) pending = null;
+                if (!OpenQuantity(request)) Stop("Could not open Remove from Saddlebag. No items were withdrawn.");
                 return;
             }
             var addon = gui.GetAddonByName("InputNumeric");
@@ -130,10 +136,13 @@ public sealed unsafe class SaddlebagWithdrawLeaveOne(IContextMenu menus, IFramew
             var input = (AddonInputNumeric*)addon.Address;
             if (input->AtkValuesCount < 7 || input->AtkValues[2].Type != AtkValueType.UInt ||
                 input->AtkValues[3].Type != AtkValueType.UInt ||
-                !TextEquals(input->AtkValues[6], quantityPrompt)) { pending = null; return; }
+                !TextEquals(input->AtkValues[6], quantityPrompt))
+            { Stop("The saddlebag quantity dialog was not recognized. No automatic amount was submitted."); return; }
             var amount = request.Amount;
             pending = null; // Exactly one submission; never retry a rejected or partially completed move.
-            if (amount < input->AtkValues[2].UInt || amount > input->AtkValues[3].UInt) return;
+            if (amount < input->AtkValues[2].UInt || amount > input->AtkValues[3].UInt)
+            { Stop("The requested amount is unavailable. Check inventory space or use the quantity dialog manually."); return; }
+            log.Debug("Removing {Amount} from saddlebag {Container}, slot {Slot}, leaving one", amount, request.Container, request.Slot);
             input->FireCallbackInt(amount);
         }
         catch (Exception ex) { Fail(ex); }
@@ -169,6 +178,7 @@ public sealed unsafe class SaddlebagWithdrawLeaveOne(IContextMenu menus, IFramew
                 if (numeric.IsNull || !numeric.IsVisible) return false;
                 numericAddress = numeric.Address;
                 numericId = numeric.Id;
+                log.Debug("Opened saddlebag removal quantity dialog from native menu entry {Index}", index);
                 return true;
             }
         }
@@ -184,5 +194,13 @@ public sealed unsafe class SaddlebagWithdrawLeaveOne(IContextMenu menus, IFramew
     {
         pending = null;
         log.Error(ex, "Saddlebag withdraw all but one failed");
+        chat.PrintError("[Aetherworks] Could not withdraw from the saddlebag. See the plugin log.");
+    }
+
+    private void Stop(string reason)
+    {
+        pending = null;
+        log.Warning("Saddlebag withdraw all but one: {Reason}", reason);
+        chat.PrintError($"[Aetherworks] {reason}");
     }
 }

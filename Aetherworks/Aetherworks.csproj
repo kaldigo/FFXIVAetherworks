@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.2.1.2</Version>
+    <Version>0.2.1.3</Version>
     <Author>kaldigo</Author>
     <PackageProjectUrl>https://github.com/kaldigo/FFXIVAetherworks</PackageProjectUrl>
     <Name>Aetherworks</Name>
