@@ -2,7 +2,15 @@
 
 ![Aetherworks icon](assets/icon.png)
 
-A Dalamud API 15 plugin for Final Fantasy XIV. Version 0.2.1 contains two independently enabled features: **Return via Teleport** and **Shared Hotbar Sync**.
+A Dalamud API 15 plugin for Final Fantasy XIV. Version 0.2.1.2 contains three independently enabled features: **Return via Teleport**, **Shared Hotbar Sync**, and **Saddlebag Withdraw All but One**.
+
+## Saddlebag Withdraw All but One
+
+Open `/aetherworks`, select **Saddlebag Withdraw All but One** under **Items and storage**, and turn on **Enable feature**. Right-click a saddlebag stack of two or more and choose **Withdraw all but one**. A stack of 99 withdraws 98; a stack of two withdraws one. The reserved copy lets Pandora's Entrust Duplicates button match the item when putting it back. The feature starts disabled.
+
+Regular and premium saddlebag tabs are supported. Only the selected stack is affected; HQ/NQ remain separate. Single copies have no extra menu entry. The feature uses the game's localized Retrieve Quantity action and quantity dialog. Source changes, character/tab changes, unavailable actions and unrelated dialogs stop automatic submission. If the requested amount cannot be submitted, any opened quantity dialog remains for manual handling. Normal quantity actions stay manual. Native in-game testing, including coexistence with Pandora, remains pending.
+
+References: [Simple Tweaks quantity dialog](https://github.com/Caraxi/SimpleTweaksPlugin/blob/main/Tweaks/UiAdjustment/CustomDefaultQuantity.cs), [native menu selection](https://github.com/Caraxi/SimpleTweaksPlugin/blob/main/Tweaks/QuickSellItems.cs), and [ECommons numeric submission](https://github.com/NightmareXIV/ECommons/blob/master/ECommons/UIHelpers/AddonMasterImplementations/InputNumeric.cs).
 
 ## Return via Teleport
 

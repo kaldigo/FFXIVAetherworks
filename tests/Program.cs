@@ -1,4 +1,5 @@
 using Aetherworks.Tweaks;
+using Aetherworks.Transfers;
 
 var checks = 0;
 checks += ReturnFlowTests.Run();
@@ -8,6 +9,15 @@ void Check(bool value, string name)
     if (!value) throw new Exception(name);
     checks++;
 }
+
+var withdrawal = new LeaveOneWithdrawal(42, 4000, 5, 100, 1, 99);
+Check(withdrawal.Amount == 98 && withdrawal.Matches(42, 100, 1, 99), "Withdraw a stack minus its reserved copy");
+Check((withdrawal with { Quantity = 2 }).Amount == 1, "Two-item stack leaves one");
+Check((withdrawal with { Quantity = 1 }).Amount == 0 && !withdrawal.Matches(42, 100, 1, 1), "Single copy cannot be withdrawn");
+Check(!withdrawal.Matches(43, 100, 1, 99) && !withdrawal.Matches(42, 101, 1, 99) &&
+    !withdrawal.Matches(42, 100, 0, 99) && !withdrawal.Matches(42, 100, 1, 98),
+    "Character, item, quality or stack changes invalidate a queued withdrawal");
+Check(!(withdrawal with { Quantity = 0 }).Matches(42, 100, 1, 0), "Empty stack cannot be withdrawn");
 
 var first = new FakeTweak("first");
 var second = new FakeTweak("second");
@@ -68,7 +78,7 @@ try
     throw new Exception("Duplicate IDs accepted");
 }
 catch (ArgumentException) { checks++; }
-Console.WriteLine($"Passed {checks} lifecycle, Return fallback and shared hotbar checks.");
+Console.WriteLine($"Passed {checks} lifecycle, Return fallback, shared hotbar and withdrawal checks.");
 sealed class FakeTweak(string id) : ITweak
 {
     public string Id => id;

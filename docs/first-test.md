@@ -4,7 +4,7 @@ These checks require a live game session; automated logic tests do not validate 
 
 ## Settings and Return via Teleport
 
-1. Upgrade from an older Aetherworks configuration. Open `/aetherworks`. Confirm Return via Teleport under Actions and Shared Hotbar Sync under Hotbars are the only entries. New features and confirmation-skip start off; previously enabled Return settings remain saved. No old storage buttons, tooltip additions or background tracking should appear.
+1. Upgrade from an older Aetherworks configuration. Open `/aetherworks`. Confirm Return via Teleport under Actions, Shared Hotbar Sync under Hotbars, and Saddlebag Withdraw All but One under Items and storage. New features and confirmation-skip start off; previously enabled settings remain saved. No old storage buttons, tooltip additions or background tracking should appear.
 2. Search for Return, Teleport and Actions. Check the left list and right detail pane at different UI scales and window sizes. Enable/disable the feature, close/reopen settings and reload the plugin to verify saved choices.
 3. With the feature off, verify normal Return, including its native cooldown error. With it on and Return ready, verify free Return, its normal cast/confirmation and normal cooldown afterward.
 4. During Return cooldown, press the normal Return hotbar button (keyboard and cross hotbar), and test the Return action from the action list and a Return macro. Confirm the home destination and quoted fare match the game's Teleport list.
@@ -14,6 +14,13 @@ These checks require a live game session; automated logic tests do not validate 
 8. Test combat, death, duties, cutscenes, zoning, existing casts and animation lock. No restricted Teleport should start and no request should be retried later.
 9. With a confirmation open, wait 30 seconds, change territory, change home point, log out/change character, disable the feature, or change its confirmation setting. The old authorization must no longer work. If Return finishes its cooldown while the confirmation is open, confirming must use free Return.
 10. Disable/unload/reload repeatedly, including with a confirmation open. Verify hooks stop, no pending trip survives, normal Return works, and unrelated actions are unaffected. Test alongside other enabled action plugins.
+
+## Saddlebag Withdraw All but One
+
+1. Enable the feature under Items and storage. Right-click stacks of 1, 2 and 99: no extra action for 1; Withdraw all but one should move 1 and 98 respectively for the others, leaving one in the original slot. Check both regular saddlebag pages and premium tabs if available.
+2. Test HQ and NQ stacks separately, then use Pandora's Entrust Duplicates button to return matching items. Check that other stacks are untouched and the reserved copy remains the match.
+3. Verify normal Retrieve Quantity and unrelated numeric dialogs remain manual. Test full inventory, localized clients, and plugins adding context-menu entries. Unavailable or mismatched actions must not submit another menu option.
+4. Change the stack, close/switch the bag, disable the feature, or reload during the operation. No stale automatic submission should follow. Any quantity dialog left after cancellation is for manual handling. Re-enable/reload and verify the feature choice persists.
 
 ## Shared Hotbar Sync
 

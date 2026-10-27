@@ -9,5 +9,6 @@
     <Compile Include="../Aetherworks/Tweaks/*.cs" Link="Tweaks/%(Filename)%(Extension)" />
     <Compile Include="../Aetherworks/Actions/*.cs" Link="Actions/%(Filename)%(Extension)" />
     <Compile Include="../Aetherworks/Hotbars/Shared*.cs" Link="Hotbars/%(Filename)%(Extension)" />
+    <Compile Include="../Aetherworks/Transfers/LeaveOneWithdrawal.cs" Link="Transfers/LeaveOneWithdrawal.cs" />
   </ItemGroup>
 </Project>

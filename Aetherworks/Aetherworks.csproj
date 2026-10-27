@@ -1,11 +1,11 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.2.1</Version>
+    <Version>0.2.1.2</Version>
     <Author>kaldigo</Author>
     <PackageProjectUrl>https://github.com/kaldigo/FFXIVAetherworks</PackageProjectUrl>
     <Name>Aetherworks</Name>
-    <Punchline>Paid Return fallback and shared PvE/PvP hotbar sync.</Punchline>
-    <Description>Teleport home while Return is on cooldown, with optional fare confirmation. Sync shared hotbars between PvE and PvP: initially copy PvE, then synchronize changes in either direction. Each feature is independently enabled.</Description>
+    <Punchline>Paid Return fallback, shared hotbar sync and saddlebag conveniences.</Punchline>
+    <Description>Teleport home while Return is on cooldown, sync shared hotbars between PvE and PvP, and withdraw saddlebag stacks while leaving one for easy duplicate entrusting. Each feature is independently enabled.</Description>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

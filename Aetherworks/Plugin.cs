@@ -20,20 +20,23 @@ public sealed class Plugin : IDalamudPlugin
 
     public Plugin(IDalamudPluginInterface pluginInterface, ICommandManager commands, IPluginLog log,
         IClientState client, IPlayerState player, IObjectTable objects, ICondition condition,
-        IGameInteropProvider interop, IChatGui chat, IFramework framework)
+        IGameInteropProvider interop, IChatGui chat, IFramework framework, IContextMenu contextMenu,
+        IGameGui gui, IDataManager data)
     {
         this.pluginInterface = pluginInterface;
         this.commands = commands;
         var config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         config.EnabledTweaks ??= new(StringComparer.Ordinal);
         // Old choices never opt a character into the new feature.
-        config.EnabledTweaks.IntersectWith([ReturnViaTeleport.FeatureId, SharedHotbarSync.FeatureId]);
+        config.EnabledTweaks.IntersectWith([ReturnViaTeleport.FeatureId, SharedHotbarSync.FeatureId,
+            SaddlebagWithdrawLeaveOne.FeatureId]);
         var fallback = new ReturnViaTeleport(client, player, objects, condition, interop, chat, log,
             () => config.SkipPaidTeleportConfirmation);
         var hotbarSync = new SharedHotbarSync(framework,
             new NativeSharedHotbars(client, player, objects, condition),
             new SharedHotbarStore(Path.Combine(pluginInterface.GetPluginConfigDirectory(), "shared-hotbars")), log);
-        tweaks = new TweakManager([fallback, hotbarSync], config.EnabledTweaks,
+        var withdrawal = new SaddlebagWithdrawLeaveOne(contextMenu, framework, gui, player, data, log);
+        tweaks = new TweakManager([fallback, hotbarSync, withdrawal], config.EnabledTweaks,
             () => pluginInterface.SavePluginConfig(config), (ex, message) => log.Error(ex, message));
         settings = new SettingsWindow(tweaks, config, fallback, hotbarSync);
         var confirmation = new ReturnConfirmationWindow(fallback);
