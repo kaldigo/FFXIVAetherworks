@@ -3,21 +3,21 @@
     "Author": "kaldigo",
     "Name": "Aetherworks",
     "InternalName": "Aetherworks",
-    "AssemblyVersion": "0.2.1.1",
-    "Description": "Teleport home while Return is on cooldown, with optional fare confirmation. Sync shared hotbars between PvE and PvP: initially copy PvE, then synchronize changes in either direction. Each feature is independently enabled.",
+    "AssemblyVersion": "0.2.1.2",
+    "Description": "Teleport home while Return is on cooldown, sync shared hotbars between PvE and PvP, and withdraw saddlebag stacks while leaving one for easy duplicate entrusting. Each feature is independently enabled.",
     "ApplicableVersion": "any",
     "DalamudApiLevel": 15,
     "LoadRequiredState": 0,
     "LoadSync": false,
     "CanUnloadAsync": false,
     "LoadPriority": 0,
-    "Punchline": "Paid Return fallback and shared PvE/PvP hotbar sync.",
+    "Punchline": "Paid Return fallback, shared hotbar sync and saddlebag conveniences.",
     "AcceptsFeedback": true,
     "RepoUrl": "https://github.com/kaldigo/FFXIVAetherworks",
     "IconUrl": "https://raw.githubusercontent.com/kaldigo/FFXIVAetherworks/main/assets/icon.png",
-    "Changelog": "0.2.1: Add Shared Hotbar Sync as the second feature. Initially copy shared PvE hotbar assignments into PvP, then sync edits and clears in both directions with per-character history, mode-appropriate Sprint, conflict choices and local backups. Include shared cross hotbars. Pause during combat/loading and on failed writes or unreadable history. Keep Return via Teleport and its optional confirmation-skip setting in the Pandora-style feature browser. All former Aetherworks features and the KamiToolKit dependency remain removed. Native in-game acceptance remains pending.",
-    "DownloadLinkInstall": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.1/Aetherworks.zip",
-    "DownloadLinkUpdate": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.1/Aetherworks.zip",
-    "DownloadLinkTesting": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.1/Aetherworks.zip"
+    "Changelog": "0.2.1.2: Add Saddlebag Withdraw All but One, disabled by default under Items and storage. Right-click a saddlebag stack of two or more to withdraw its quantity minus one, retaining a copy for Pandora's Entrust Duplicates matching. Covers regular and premium saddlebag tabs, preserves HQ/NQ, and checks the source and native quantity dialog before one submission. Keeps Return via Teleport and Shared Hotbar Sync. Native in-game acceptance remains pending.",
+    "DownloadLinkInstall": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.2/Aetherworks.zip",
+    "DownloadLinkUpdate": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.2/Aetherworks.zip",
+    "DownloadLinkTesting": "https://github.com/kaldigo/FFXIVAetherworks/releases/download/v0.2.1.2/Aetherworks.zip"
   }
 ]
