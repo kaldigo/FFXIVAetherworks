@@ -5,11 +5,13 @@ using Aetherworks.Tweaks;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
+using Dalamud.Plugin.Services;
 
 namespace Aetherworks.Windows;
 
 public sealed class SettingsWindow : Window
 {
+    private readonly ITextureProvider textures;
     private readonly TweakManager manager;
     private readonly Configuration config;
     private readonly ReturnViaTeleport fallback;
@@ -18,11 +20,12 @@ public sealed class SettingsWindow : Window
     private readonly AetherworksShell shell = new();
     private readonly AetherworksUiActions actions;
 
-    public SettingsWindow(TweakManager manager, Configuration config, ReturnViaTeleport fallback, SharedHotbarSync hotbarSync, PartyDamage partyDamage, Action<float> applyZoom)
+    public SettingsWindow(TweakManager manager, Configuration config, ReturnViaTeleport fallback, SharedHotbarSync hotbarSync, PartyDamage partyDamage, Action<float> applyZoom, ITextureProvider textures)
         : base("Aetherworks###AetherworksSettings", AetherglassUI.WindowShell.HostFlags)
     {
         this.partyDamage = partyDamage;
         this.manager = manager;
+        this.textures = textures;
         this.config = config;
         this.fallback = fallback;
         this.hotbarSync = hotbarSync;
@@ -35,16 +38,14 @@ public sealed class SettingsWindow : Window
     }
     public override void PreDraw() => AetherglassUI.WindowShell.PushHostStyle();
     public override void PostDraw() => AetherglassUI.WindowShell.PopHostStyle();
-    private static void DrawHeaderMark(Vector2 headerPosition, float size)
+    private void DrawHeaderMark(Vector2 headerPosition, float size)
     {
-        var texture = Ember.Services.TextureProvider
+        var texture = textures
             .GetFromManifestResource(typeof(SettingsWindow).Assembly, "Aetherworks.mark.png")
             .GetWrapOrDefault();
         if (texture == null) return;
 
-        // Reserve space for the shell's close button at the right edge.
-        var position = new Vector2(ImGui.GetWindowPos().X + ImGui.GetWindowWidth() - 3 * size, headerPosition.Y);
-        ImGui.GetWindowDrawList().AddImage(texture.Handle, position, position + new Vector2(size));
+        ImGui.GetWindowDrawList().AddImage(texture.Handle, headerPosition, headerPosition + new Vector2(size));
     }
 
     public override void Draw() => shell.Draw(Snapshot(),actions,ImGuiHelpers.GlobalScale,DrawHeaderMark);

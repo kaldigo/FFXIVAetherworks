@@ -22,7 +22,7 @@ public sealed class Plugin : IDalamudPlugin
     public Plugin(IDalamudPluginInterface pluginInterface, ICommandManager commands, IPluginLog log,
         IClientState client, IPlayerState player, IObjectTable objects, ICondition condition,
         IGameInteropProvider interop, IChatGui chat, IFramework framework, IContextMenu contextMenu,
-        IGameGui gui, IDataManager data, IAddonLifecycle lifecycle, IAddonEventManager events)
+        IGameGui gui, IDataManager data, IAddonLifecycle lifecycle, IAddonEventManager events, ITextureProvider textures)
     {
         this.pluginInterface = pluginInterface;
         this.commands = commands;
@@ -50,7 +50,7 @@ public sealed class Plugin : IDalamudPlugin
         tweaks = new TweakManager([fallback, hotbarSync, withdrawal, partyDamage, emberOverlay], config.EnabledTweaks,
             () => pluginInterface.SavePluginConfig(config), (ex, message) => log.Error(ex, message));
         if (migrateFeatures) tweaks.Save();
-        settings = new SettingsWindow(tweaks, config, fallback, hotbarSync, partyDamage, ember.ApplyZoom);
+        settings = new SettingsWindow(tweaks, config, fallback, hotbarSync, partyDamage, ember.ApplyZoom, textures);
         var confirmation = new ReturnConfirmationWindow(fallback);
         fallback.ConfirmationRequested += confirmation.Open;
         pluginInterface.UiBuilder.Draw += ember.Draw;
