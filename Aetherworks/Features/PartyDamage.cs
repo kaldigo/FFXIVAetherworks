@@ -1,43 +1,33 @@
 using FFXIVClientStructs.FFXIV.Client.UI.Arrays;
 using Aetherworks.Tweaks;
-using Aetherworks.Windows;
-using Dalamud.Game.Addon.Events;
-using Dalamud.Game.Addon.Events.EventDataTypes;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
+
+
 using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace Aetherworks.Features;
 
-public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLifecycle lifecycle, IAddonEventManager events, IFramework framework,
-    IGameGui gui, IObjectTable objects, IClientState client, Configuration config, IPluginLog log, Action toggleEmber, Action<bool> enableEmber) : ITweak
+public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLifecycle lifecycle, IFramework framework,
+    IGameGui gui, IObjectTable objects, IClientState client, Configuration config, IPluginLog log) : ITweak
 {
     public const string FeatureId = "party-damage";
     private const string Addon = "_PartyList";
     private const int PlayerSlots = 8;
     private const int Slots = PlayerSlots + 7;
     private readonly PartyDamageFeed feed = new(plugin, log);
-    private IAddonEventHandle? headerClick;
-    private nint headerAddon;
-    private nint headerNode;
-    private byte[] headerOriginal = [];
-    private byte[] headerApplied = [];
-    private bool headerOpen;
-    private NodeFlags addedHeaderFlags;
     private readonly string?[] labels = new string?[Slots];
-    private readonly bool[] castingRows = new bool[Slots];
     private readonly int[] ranks = new int[Slots];
     private readonly IndicatorEdit?[] indicators = new IndicatorEdit?[Slots];
     private sealed record IndicatorEdit(nint Node, uint Entity, string Original, string Applied);
-    private readonly Edit?[] castEdits = new Edit?[Slots];
     private readonly string[] roster = new string[Slots];
     private readonly uint[] entityIds = new uint[Slots];
     private readonly Edit?[] cache = new Edit?[Slots];
     private readonly Edit?[] edits = new Edit?[Slots];
-    private sealed record Edit(nint Target, string Member, string Label, byte[] Original, byte[] Replacement, System.Numerics.Vector3 Color = default);
+    private sealed record Edit(nint Target, string Member, string Label, byte[] Original, byte[] Replacement);
     private IReadOnlyDictionary<string, DamageEntry>? previousDamage;
     private bool enabled;
     private long nextPoll;
@@ -52,7 +42,6 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     public void Enable()
     {
         enabled = true;
-        enableEmber(true);
         feed.Start();
         framework.Update += Update;
         client.TerritoryChanged += TerritoryChanged;
@@ -64,8 +53,6 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
 
     public void Disable()
     {
-        DetachHeader(CurrentAddon());
-        enableEmber(false);
         RestoreRows(CurrentAddon());
         enabled = false;
         framework.Update -= Update;
@@ -74,8 +61,6 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         lifecycle.UnregisterListener(BeforeFinalize);
         lifecycle.UnregisterListener(AfterUpdate);
         feed.Stop();
-        Array.Clear(castingRows);
-        Array.Clear(castEdits);
         Array.Clear(indicators);
         Array.Clear(edits);
         Array.Clear(cache);
@@ -120,7 +105,6 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         var numbers = PartyListNumberArray.Instance();
         var player = objects.LocalPlayer?.Name.TextValue;
         var addon = CurrentAddon();
-        AttachHeader(addon);
         var damage = feed.Damage;
         bool changed = damage != previousDamage || player != localName;
         localName = player;
@@ -143,18 +127,14 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     // Keep any SeString payloads in the displayed name byte-for-byte intact.
     private Edit? Replace(int row, nint target, ReadOnlySpan<byte> text, string label)
     {
+        if (text.IsEmpty) return null;
         if (cache[row] is { } cached && cached.Target == target && cached.Member == roster[row] && cached.Label == label &&
             text.SequenceEqual(cached.Original.AsSpan(0, cached.Original.Length - 1))) return cached;
         var (start, end) = LevelRange(text);
         if (start < 0) return null;
-        return cache[row] = new(target, roster[row], label, [..text, 0],
-            PartyLevelText.PrependPercentage(text, start, end, StyledShare(label).ToArray()));
-    }
-
-    private Lumina.Text.SeStringBuilder StyledShare(string label)
-    {
+        var rgb = config.PartyDamageColor;
         var prefix = new Lumina.Text.SeStringBuilder()
-            .PushColorRgba(new System.Numerics.Vector4(config.PartyDamageColor, 1f));
+            .PushColorRgba(new System.Numerics.Vector4(rgb, 1f));
         foreach (char ch in label.AsSpan().TrimEnd())
         {
             // The level field uses the game's numeral icons, including their heavier strokes.
@@ -163,7 +143,8 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
                 : ch);
         }
         prefix.PopColor();
-        return prefix;
+        return cache[row] = new(target, roster[row], label, [..text, 0],
+            PartyLevelText.PrependPercentage(text, start, end, prefix.ToArray()));
     }
 
     private AddonPartyList* CurrentAddon() => (AddonPartyList*)gui.GetAddonByName(Addon).Address;
@@ -224,30 +205,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         if (current != icon) node->SetText(icon);
     }
 
-    private static AtkTextNode* CastNode(AddonPartyList* addon, int row) => row < PlayerSlots
-        ? addon->PartyMembers[row].CastingActionName : addon->TrustMembers[row - PlayerSlots].CastingActionName;
-
-    private void UpdateCastText(int row, AtkTextNode* cast, ReadOnlySpan<byte> original, string? label)
-    {
-        var previous = castEdits[row];
-        if (cast == null || label == null || original.IsEmpty)
-        {
-            if (cast != null && previous != null && IsApplied(cast, previous))
-                cast->SetText(original.IsEmpty ? previous.Original : (ReadOnlySpan<byte>)[..original, 0]);
-            castEdits[row] = null;
-            return;
-        }
-        if (previous == null || previous.Target != (nint)cast || previous.Member != roster[row] ||
-            previous.Label != label || !original.SequenceEqual(previous.Original.AsSpan(0, previous.Original.Length - 1)) ||
-            previous.Color != config.PartyDamageColor)
-        {
-            previous = castEdits[row] = new((nint)cast, roster[row], label, [..original, 0],
-                PartyLevelText.PrependPercentage(original, 0, 0, StyledShare(label).ToArray()), config.PartyDamageColor);
-        }
-        if (!IsApplied(cast, previous)) cast->SetText(previous.Replacement.AsSpan());
-    }
-
-    private void ApplyRows(AddonPartyList* addon, bool transitionsOnly = false)
+    private void ApplyRows(AddonPartyList* addon)
     {
         var numbers = PartyListNumberArray.Instance();
         var strings = PartyListStringArray.Instance();
@@ -255,20 +213,13 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         for (int i = 0; i < Slots; i++)
         {
             var node = NameNode(addon, i);
-            var cast = node == null ? null : CastNode(addon, i);
-            bool casting = cast != null && cast->IsVisible() && cast->Color.A != 0 &&
-                (!node->IsVisible() || node->Color.A == 0);
-            if (transitionsOnly && castingRows[i] == casting) continue;
-            castingRows[i] = casting;
             var previous = edits[i];
             uint id = RowId(numbers, i);
-            var original = strings->Members[i].Name.AsSpan();
-            var label = id != 0 && id == entityIds[i] ? labels[i] : null;
-            UpdateIndicator(addon, strings, i, id, label != null ? ranks[i] : 0);
-            UpdateCastText(i, cast, strings->Members[i].CastingActionName.AsSpan(), casting ? label : null);
+            UpdateIndicator(addon, strings, i, id, id != 0 && id == entityIds[i] && labels[i] != null ? ranks[i] : 0);
             if (node == null) { edits[i] = null; continue; }
+            var original = strings->Members[i].Name.AsSpan();
             if (original.IsEmpty) continue;
-            if (label == null)
+            if (labels[i] is not { } label || entityIds[i] == 0 || RowId(numbers, i) != entityIds[i])
             {
                 if (previous?.Target == (nint)node) node->SetText((ReadOnlySpan<byte>)[..original, 0]);
                 edits[i] = null;
@@ -290,11 +241,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         {
             var previous = edits[i];
             edits[i] = null;
-            if (strings != null)
-            {
-                UpdateIndicator(addon, strings, i, 0, 0);
-                UpdateCastText(i, NameNode(addon, i) == null ? null : CastNode(addon, i), strings->Members[i].CastingActionName.AsSpan(), null);
-            }
+            if (strings != null) UpdateIndicator(addon, strings, i, 0, 0);
             var node = NameNode(addon, i);
             if (node == null || previous?.Target != (nint)node || strings == null) continue;
             var original = strings->Members[i].Name.AsSpan();
@@ -304,70 +251,11 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
 
     private void BeforeDraw(AddonEvent _, AddonArgs args)
     {
-        var addon = (AddonPartyList*)args.Addon.Address;
-        if ((nint)addon == headerAddon && addon != null && (nint)addon->PartyTypeTextNode == headerNode && headerNode != 0)
-            DrawHeaderIndicator(addon->PartyTypeTextNode);
-        ApplyRows(addon, transitionsOnly: config.PartyDamageBeforeRequestedUpdate);
-    }
-
-    private void DrawHeaderIndicator(AtkTextNode* title)
-    {
-        var current = title->NodeText.AsSpan();
-        if (current.IsEmpty) return;
-        bool ours = headerApplied.Length > 0 && current.SequenceEqual(headerApplied.AsSpan(0, headerApplied.Length - 1));
-        if (ours && headerOpen == config.Ember.Open) return;
-        if (!ours) headerOriginal = [..current, 0];
-        headerOpen = config.Ember.Open;
-        ReadOnlySpan<byte> suffix = headerOpen ? " - Hide"u8 : " - Show"u8;
-        headerApplied = [..headerOriginal.AsSpan(0, headerOriginal.Length - 1), ..suffix, 0];
-        title->SetText(headerApplied.AsSpan());
-    }
-
-    private void AttachHeader(AddonPartyList* addon)
-    {
-        var title = addon == null ? null : addon->PartyTypeTextNode;
-        if (headerClick != null && headerAddon == (nint)addon && headerNode == (nint)title) return;
-        DetachHeader(addon);
-        if (title == null) return;
-        headerClick = events.AddEvent((nint)addon, (nint)title, AddonEventType.MouseClick, OnHeaderClick);
-        if (headerClick == null) return;
-        headerAddon = (nint)addon;
-        headerNode = (nint)title;
-        addedHeaderFlags = (NodeFlags.HasCollision | NodeFlags.RespondToMouse | NodeFlags.EmitsEvents) & ~title->NodeFlags;
-        title->NodeFlags |= addedHeaderFlags;
-        addon->UpdateCollisionNodeList(false);
-    }
-
-    private void OnHeaderClick(AddonEventType type, AddonEventData data)
-    {
-        if (!enabled || type != AddonEventType.MouseClick || data.AtkEventDataPointer == 0) return;
-        var mouse = ((AtkEventData*)data.AtkEventDataPointer)->MouseData;
-        if (mouse.ButtonId == 0 && !mouse.Modifier.HasFlag(ModifierFlag.Dragging))
-            toggleEmber();
-    }
-
-    private void DetachHeader(AddonPartyList* addon)
-    {
-        if (headerClick == null) return;
-        events.RemoveEvent(headerClick);
-        if (addon != null && (nint)addon == headerAddon && (nint)addon->PartyTypeTextNode == headerNode)
-        {
-            var title = addon->PartyTypeTextNode;
-            if (headerApplied.Length > 0 && title->NodeText.AsSpan().SequenceEqual(headerApplied.AsSpan(0, headerApplied.Length - 1)))
-                title->SetText(headerOriginal.AsSpan());
-            title->NodeFlags &= ~addedHeaderFlags;
-            addon->UpdateCollisionNodeList(false);
-        }
-        headerApplied = headerOriginal = [];
-        headerClick = null;
-        headerAddon = headerNode = 0;
+        if (!config.PartyDamageBeforeRequestedUpdate) ApplyRows((AddonPartyList*)args.Addon.Address);
     }
 
     private void BeforeFinalize(AddonEvent _, AddonArgs args)
     {
-        DetachHeader((AddonPartyList*)args.Addon.Address);
-        Array.Clear(castingRows);
-        Array.Clear(castEdits);
         Array.Clear(indicators);
         Array.Clear(edits);
         Array.Clear(cache);

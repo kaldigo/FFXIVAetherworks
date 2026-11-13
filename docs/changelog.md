@@ -1,3 +1,5 @@
+Restore the exact v0.2.1.14 party-row implementation, including its original cast behavior. Keep the Ember header toggle separate.
+
 Restore native party-row spacing. Show rank in the slot badge and damage share alongside the name or cast action using text only.
 
 Use the casting rank and percentage layout throughout the encounter. Place the idle name and its native sync icon after the badge.
