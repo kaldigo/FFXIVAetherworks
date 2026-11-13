@@ -33,7 +33,19 @@ public sealed class SettingsWindow : Window
             value => { partyDamage.SetShieldsOverHp(value); manager.Save(); },
             color => { partyDamage.SetColor(color); manager.Save(); }, () => { applyZoom(config.Ember.Zoom); manager.Save(); }, manager.Save);
     }
-    public override void Draw() => shell.Draw(Snapshot(),actions,ImGuiHelpers.GlobalScale);
+    private static void DrawHeaderMark(Vector2 headerPosition, float size)
+    {
+        var texture = Ember.Services.TextureProvider
+            .GetFromManifestResource(typeof(SettingsWindow).Assembly, "Aetherworks.mark.png")
+            .GetWrapOrDefault();
+        if (texture == null) return;
+
+        // Reserve space for the shell's close button at the right edge.
+        var position = new Vector2(ImGui.GetWindowPos().X + ImGui.GetWindowWidth() - 3 * size, headerPosition.Y);
+        ImGui.GetWindowDrawList().AddImage(texture.Handle, position, position + new Vector2(size));
+    }
+
+    public override void Draw() => shell.Draw(Snapshot(),actions,ImGuiHelpers.GlobalScale,DrawHeaderMark);
 
     private AetherworksUiState Snapshot()
     {

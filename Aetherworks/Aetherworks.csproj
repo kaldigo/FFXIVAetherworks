@@ -13,6 +13,9 @@
     <AetherglassUIProject Condition="'$(AetherglassUIProject)' == '' and Exists('../../../AetherglassUI/Library/AetherglassUI.csproj')">../../../AetherglassUI/Library/AetherglassUI.csproj</AetherglassUIProject>
     <AetherglassUIProject Condition="'$(AetherglassUIProject)' == ''">../../AetherglassUI/Library/AetherglassUI.csproj</AetherglassUIProject>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../assets/mark.png" LogicalName="Aetherworks.mark.png" />
+  </ItemGroup>
   <ItemGroup><ProjectReference Include="$(AetherglassUIProject)" /></ItemGroup>
   <ItemGroup>
     <Reference Include="TerraFX.Interop.Windows" HintPath="$(DalamudLibPath)TerraFX.Interop.Windows.dll" Private="false" />

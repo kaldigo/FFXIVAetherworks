@@ -12,7 +12,7 @@ internal sealed class AetherworksShell
     internal int FeatureRowsShown => features.LastRowCount;
     private string? target;
 
-    internal void Draw(AetherworksUiState state, AetherworksUiActions actions, float uiScale)
+    internal void Draw(AetherworksUiState state, AetherworksUiActions actions, float uiScale, Action<System.Numerics.Vector2,float>? drawMark = null)
     {
         window.Close = actions.Close;
         window.Selected = Navigation.Area.ToString();
@@ -49,7 +49,7 @@ internal sealed class AetherworksShell
                 Section("backups", "Shared hotbar backups", [Info("location", "Backup location",
                     "Open shared-hotbars/backups in the Aetherworks configuration folder. Initial backups preserve original assignments. last-change.json records the latest before-sync state.")])
             ], searchable: false))
-        ], AetherworksChrome.Mark, () => ImGui.TextUnformatted(state.SaveError != null ? "Settings could not be saved · See recovery" : Health(state)),
+        ], drawMark ?? AetherworksChrome.Mark, () => ImGui.TextUnformatted(state.SaveError != null ? "Settings could not be saved · See recovery" : Health(state)),
             () => state.SaveError != null ? StateTone.Error : state.IssueCount > 0 ? StateTone.Attention : StateTone.Ready);
     }
 
