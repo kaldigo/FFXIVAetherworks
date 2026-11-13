@@ -19,7 +19,7 @@ public sealed class SettingsWindow : Window
     private readonly AetherworksUiActions actions;
 
     public SettingsWindow(TweakManager manager, Configuration config, ReturnViaTeleport fallback, SharedHotbarSync hotbarSync, PartyDamage partyDamage, Action<float> applyZoom)
-        : base("Aetherworks###AetherworksSettings", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
+        : base("Aetherworks###AetherworksSettings", AetherglassUI.WindowShell.HostFlags)
     {
         this.partyDamage = partyDamage;
         this.manager = manager;
@@ -33,6 +33,8 @@ public sealed class SettingsWindow : Window
             value => { partyDamage.SetShieldsOverHp(value); manager.Save(); },
             color => { partyDamage.SetColor(color); manager.Save(); }, () => { applyZoom(config.Ember.Zoom); manager.Save(); }, manager.Save);
     }
+    public override void PreDraw() => AetherglassUI.WindowShell.PushHostStyle();
+    public override void PostDraw() => AetherglassUI.WindowShell.PopHostStyle();
     private static void DrawHeaderMark(Vector2 headerPosition, float size)
     {
         var texture = Ember.Services.TextureProvider
