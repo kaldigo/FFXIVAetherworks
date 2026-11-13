@@ -20,6 +20,9 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     private const int Slots = PlayerSlots + 7;
     private readonly PartyDamageFeed feed = new(plugin, log);
     private readonly string?[] labels = new string?[Slots];
+    private readonly int[] ranks = new int[Slots];
+    private readonly IndicatorEdit?[] indicators = new IndicatorEdit?[Slots];
+    private sealed record IndicatorEdit(nint Node, uint Entity, string Original, string Applied);
     private readonly string[] roster = new string[Slots];
     private readonly uint[] entityIds = new uint[Slots];
     private readonly Edit?[] cache = new Edit?[Slots];
@@ -31,7 +34,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     private string? localName;
     public string Id => FeatureId;
     public string Name => "Party list damage";
-    public string Description => "Replace party levels with encounter damage rank and party damage share from IINACT.";
+    public string Description => "Show damage rank in the party-slot icon and IINACT damage share beside the name.";
     public string Category => "Party list";
     public string Status => !feed.Connected ? "Waiting for IINACT." : labels.All(label => label == null)
         ? "Connected. Waiting for matching party damage." : "Showing damage from the latest encounter.";
@@ -58,6 +61,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         lifecycle.UnregisterListener(BeforeFinalize);
         lifecycle.UnregisterListener(AfterUpdate);
         feed.Stop();
+        Array.Clear(indicators);
         Array.Clear(edits);
         Array.Clear(cache);
         Array.Clear(labels);
@@ -116,7 +120,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
             roster[i] = name;
         }
         if (!changed) return;
-        PartyDamageRanks.Calculate(roster, PlayerSlots, player, damage, labels);
+        PartyDamageRanks.Calculate(roster, PlayerSlots, player, damage, labels, ranks);
         if (config.PartyDamageBeforeRequestedUpdate) RequestRefresh();
     }
 
@@ -147,13 +151,13 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
 
     private AddonPartyList* CurrentAddon() => (AddonPartyList*)gui.GetAddonByName(Addon).Address;
 
-    private static AtkTextNode* NameNode(AddonPartyList* addon, int slot)
+    private static AtkTextNode* NameNode(AddonPartyList* addon, int slot, bool indicator = false)
     {
         if (addon == null) return null;
         if (slot < PlayerSlots)
-            return slot < addon->MemberCount ? addon->PartyMembers[slot].Name : null;
+            return slot >= addon->MemberCount ? null : indicator ? addon->PartyMembers[slot].GroupSlotIndicator : addon->PartyMembers[slot].Name;
         int npc = slot - PlayerSlots;
-        return npc < addon->TrustCount ? addon->TrustMembers[npc].Name : null;
+        return npc >= addon->TrustCount ? null : indicator ? addon->TrustMembers[npc].GroupSlotIndicator : addon->TrustMembers[npc].Name;
     }
 
     private static bool IsApplied(AtkTextNode* node, Edit edit) => (nint)node == edit.Target &&
@@ -177,6 +181,32 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     private static uint RowId(PartyListNumberArray* numbers, int row) => row < PlayerSlots
         ? (uint)numbers->PartyMembers[row].EntityId : (uint)numbers->TrustMembers[row - PlayerSlots].EntityId;
 
+    private void UpdateIndicator(AddonPartyList* addon, PartyListStringArray* strings, int row, uint id, int rank)
+    {
+        var node = NameNode(addon, row, indicator: true);
+        var saved = indicators[row];
+        if (node == null) { indicators[row] = null; return; }
+        string current = node->NodeText.ToString();
+        bool ours = saved?.Node == (nint)node && current == saved.Applied;
+        string original = ours ? saved!.Original : current;
+        var source = strings->Members[row].GroupSlotIndicator;
+        if (!source.AsSpan().IsEmpty) original = source.ToString();
+        if (rank == 0)
+        {
+            if (ours && current != original) node->SetText(original);
+            indicators[row] = null;
+            return;
+        }
+        if (original.Length != 1) return;
+        char glyph = original[0];
+        bool self = glyph is >= '\uE0E0' and <= '\uE0E9';
+        if (!self && (glyph < '\uE08F' || glyph > '\uE0A2')) return;
+        string icon = ((char)((self && rank <= 9 ? 0xE0E0 : 0xE08F) + rank)).ToString();
+        if (saved?.Entity != id || saved.Node != (nint)node || saved.Original != original || saved.Applied != icon)
+            indicators[row] = new((nint)node, id, original, icon);
+        if (current != icon) node->SetText(icon);
+    }
+
     private void ApplyRows(AddonPartyList* addon)
     {
         var numbers = PartyListNumberArray.Instance();
@@ -186,6 +216,8 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         {
             var node = NameNode(addon, i);
             var previous = edits[i];
+            uint id = RowId(numbers, i);
+            UpdateIndicator(addon, strings, i, id, id != 0 && id == entityIds[i] && labels[i] != null ? ranks[i] : 0);
             if (node == null) { edits[i] = null; continue; }
             var original = strings->Members[i].Name.AsSpan();
             if (original.IsEmpty) continue;
@@ -211,6 +243,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         {
             var previous = edits[i];
             edits[i] = null;
+            if (strings != null) UpdateIndicator(addon, strings, i, 0, 0);
             var node = NameNode(addon, i);
             if (node == null || previous?.Target != (nint)node || strings == null) continue;
             var original = strings->Members[i].Name.AsSpan();
@@ -225,6 +258,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
 
     private void BeforeFinalize(AddonEvent _, AddonArgs args)
     {
+        Array.Clear(indicators);
         Array.Clear(edits);
         Array.Clear(cache);
     }

@@ -1,3 +1,5 @@
+Show encounter damage rank in the native party-slot badge and only the IINACT percentage beside the name. Preserve party order and restore slot numbers when there is no rank.
+
 Resolve party and Trust actors from each native row's entity ID, build labels from the unclipped game input, and display IINACT's damage% directly.
 
 Preserve party-list sync icons when replacing the level. Match decorated NPC rows by name and show dashes on occupied rows awaiting an IINACT match during an encounter.

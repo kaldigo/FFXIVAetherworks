@@ -13,37 +13,39 @@ void Check(bool value, string name)
 
 string[] party = ["Player", "Alisaie", "Resistance Fighter", "Alphinaud"];
 string?[] labels = new string?[4];
+var ranks = new int[11];
 var damage = new Dictionary<string, DamageEntry>(StringComparer.OrdinalIgnoreCase)
 {
     ["YOU"] = new(67151, "44%"), ["Alisaie (YOU)"] = new(37996, "25%"), ["Resistance Fighter (YOU)"] = new(25724, "16%"),
     ["Alphinaud (YOU)"] = new(20630, "13%"), ["Enemy"] = new(999999, "99%")
 };
-Aetherworks.Features.PartyDamageRanks.Calculate(party, 1, "Player", damage, labels);
-Check(labels.SequenceEqual(["1:44% ", "2:25% ", "3:16% ", "4:13% "]), "Duty support ranks and parser-provided shares");
+Aetherworks.Features.PartyDamageRanks.Calculate(party, 1, "Player", damage, labels, ranks);
+Check(labels.SequenceEqual(["44% ", "25% ", "16% ", "13% "]), "Duty support ranks and parser-provided shares");
+Check(ranks.Take(4).SequenceEqual([1, 2, 3, 4]), "Separate rank values for native slot badges");
 damage["Player@World"] = damage["YOU"];
 damage.Remove("YOU");
-Aetherworks.Features.PartyDamageRanks.Calculate(party, 1, "Player", damage, labels);
-Check(labels[0] == "1:44% ", "World-qualified party member included");
+Aetherworks.Features.PartyDamageRanks.Calculate(party, 1, "Player", damage, labels, ranks);
+Check(labels[0] == "44% ", "World-qualified party member included");
 
-PartyDamageRanks.Calculate(["Player"], 1, "Player", damage, labels);
-Check(labels[0] == "1:44% ", "One matching row preserves the parser percentage");
+PartyDamageRanks.Calculate(["Player"], 1, "Player", damage, labels, ranks);
+Check(labels[0] == "44% ", "One matching row preserves the parser percentage");
 damage["Player@World"] = new(67151, null);
-PartyDamageRanks.Calculate(["Player"], 1, "Player", damage, labels);
-Check(labels[0] == "1:  -% ", "Missing parser percentage remains unknown");
+PartyDamageRanks.Calculate(["Player"], 1, "Player", damage, labels, ranks);
+Check(labels[0] == "  -% ", "Missing parser percentage remains unknown");
 
 var largeParty = Enumerable.Range(1, 11).Select(i => $"Member {i}").ToArray();
 var shares = new Dictionary<string, DamageEntry> { [largeParty[0]] = new(93, "93%"), [largeParty[1]] = new(7, "7%") };
 var padded = new string?[largeParty.Length];
-Aetherworks.Features.PartyDamageRanks.Calculate(largeParty, 11, null, shares, padded);
-Check(padded[0] == "  1:93% " && padded[1] == "  2:  7% ", "Eleven roster members reserve two rank positions");
-Aetherworks.Features.PartyDamageRanks.Calculate(largeParty[..10], 10, null, shares, padded);
-Check(padded[1] == "2:  7% ", "Ten roster members keep compact rank and align single-digit share");
+Aetherworks.Features.PartyDamageRanks.Calculate(largeParty, 11, null, shares, padded, ranks);
+Check(padded[0] == "93% " && padded[1] == "  7% ", "Percentage-only labels on eleven-member roster");
+Aetherworks.Features.PartyDamageRanks.Calculate(largeParty[..10], 10, null, shares, padded, ranks);
+Check(padded[1] == "  7% ", "Align single-digit share on ten-member roster");
 shares[largeParty[1]] = new(0, "0%");
 shares[largeParty[0]] = new(93, "100%");
-Aetherworks.Features.PartyDamageRanks.Calculate(largeParty, 11, null, shares, padded);
-Check(padded[0] == "  1:100% " && padded[1] == "  2:  0% ", "Zero and one hundred percent fit");
+Aetherworks.Features.PartyDamageRanks.Calculate(largeParty, 11, null, shares, padded, ranks);
+Check(padded[0] == "100% " && padded[1] == "  0% ", "Zero and one hundred percent fit");
 
-Check(padded[2] == "  -:  -% ", "Unreported occupied row gets an unknown label");
+Check(padded[2] == "  -% ", "Unreported occupied row gets an unknown label");
 var icon = "\uE040 ";
 var level = "\uE06A\uE069\uE060";
 var native = System.Text.Encoding.UTF8.GetBytes(icon + level + " Alisaie");
