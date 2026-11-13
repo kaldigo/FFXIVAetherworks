@@ -1,3 +1,5 @@
+Include Duty Support and Trust NPCs in party damage ranks and percentages. Match owner-tagged NPCs and world-qualified players. The alternative entry point now applies the prefix after a requested update populates the rows.
+
 Add optional Party list damage with IINACT rank and party damage share. Choose Before draw or Before requested update in the feature settings to test how level replacement behaves in game.
 
 0.2.1.4: Replace the split settings browser with Overview, searchable Features, and Status & recovery behind a persistent icon rail. Add summary counts and a header status badge, group quick controls with right-aligned switches, align row actions, keep save recovery reachable, preserve search on Back, stack conflict choices at compact widths, and restyle paid Teleport confirmation. Ask before paid travel controls the inverse of the existing skip-confirmation setting. Include reproducible previews linked to the actual draw code. Feature behavior and saved configuration are unchanged. In-game font scale, controller focus and live acceptance remain pending.

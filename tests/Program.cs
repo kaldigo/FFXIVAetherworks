@@ -10,6 +10,20 @@ void Check(bool value, string name)
     checks++;
 }
 
+string[] party = ["Player", "Alisaie", "Resistance Fighter", "Alphinaud"];
+string?[] labels = new string?[4];
+var damage = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase)
+{
+    ["YOU"] = 67151, ["Alisaie (YOU)"] = 37996, ["Resistance Fighter (YOU)"] = 25724,
+    ["Alphinaud (YOU)"] = 20630, ["Enemy"] = 999999
+};
+Aetherworks.Features.PartyDamageRanks.Calculate(party, 1, "Player", damage, labels);
+Check(labels.SequenceEqual(["1:44% ", "2:25% ", "3:17% ", "4:14% "]), "Duty support ranks and rounded party shares");
+damage["Player@World"] = damage["YOU"];
+damage.Remove("YOU");
+Aetherworks.Features.PartyDamageRanks.Calculate(party, 1, "Player", damage, labels);
+Check(labels[0] == "1:44% ", "World-qualified party member included");
+
 var withdrawal = new LeaveOneWithdrawal(42, 4000, 5, 100, 1, 99);
 Check(withdrawal.Amount == 98 && withdrawal.Matches(42, 100, 1, 99), "Withdraw a stack minus its reserved copy");
 Check((withdrawal with { Quantity = 2 }).Amount == 1, "Two-item stack leaves one");

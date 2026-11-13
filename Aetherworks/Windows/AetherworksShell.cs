@@ -265,7 +265,7 @@ internal sealed class AetherworksShell
         else if(feature.Id=="party-damage" && feature.Enabled)
         {
             int mode = state.PartyDamageBeforeRequestedUpdate ? 1 : 0;
-            if (ImGui.Combo("Entry point", ref mode, new[] { "Before draw", "Before requested update" }, 2))
+            if (ImGui.Combo("Entry point", ref mode, new[] { "Before draw", "After requested update" }, 2))
                 actions.SetPartyDamageEntryPoint?.Invoke(mode == 1);
             Secondary(feature.Status);
         }

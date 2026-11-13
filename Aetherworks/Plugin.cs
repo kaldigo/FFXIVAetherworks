@@ -36,7 +36,7 @@ public sealed class Plugin : IDalamudPlugin
             new NativeSharedHotbars(client, player, objects, condition),
             new SharedHotbarStore(Path.Combine(pluginInterface.GetPluginConfigDirectory(), "shared-hotbars")), log);
         var withdrawal = new SaddlebagWithdrawLeaveOne(contextMenu, framework, gui, player, data, log, chat);
-        var partyDamage = new PartyDamage(pluginInterface, lifecycle, framework, objects, client, config, log);
+        var partyDamage = new PartyDamage(pluginInterface, lifecycle, framework, gui, objects, client, config, log);
         tweaks = new TweakManager([fallback, hotbarSync, withdrawal, partyDamage], config.EnabledTweaks,
             () => pluginInterface.SavePluginConfig(config), (ex, message) => log.Error(ex, message));
         settings = new SettingsWindow(tweaks, config, fallback, hotbarSync, partyDamage);

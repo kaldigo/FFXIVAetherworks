@@ -6,17 +6,18 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
-using FFXIVClientStructs.FFXIV.Client.UI.Arrays;
+using Dalamud.Game.Text.SeStringHandling;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace Aetherworks.Features;
 
 public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLifecycle lifecycle, IFramework framework,
-    IObjectTable objects, IClientState client, Configuration config, IPluginLog log) : ITweak
+    IGameGui gui, IObjectTable objects, IClientState client, Configuration config, IPluginLog log) : ITweak
 {
     public const string FeatureId = "party-damage";
     private const string Addon = "_PartyList";
-    private const int Slots = 8;
+    private const int PlayerSlots = 8;
+    private const int Slots = PlayerSlots + 7;
     private readonly PartyDamageFeed feed = new(plugin, log);
     private readonly string?[] labels = new string?[Slots];
     private readonly string[] roster = new string[Slots];
@@ -50,6 +51,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
 
     public void Disable()
     {
+        RestoreRows(CurrentAddon());
         enabled = false;
         framework.Update -= Update;
         client.TerritoryChanged -= TerritoryChanged;
@@ -67,6 +69,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
 
     public void SetEntryPoint(bool beforeUpdate)
     {
+        if (enabled) RestoreRows(CurrentAddon());
         config.PartyDamageBeforeRequestedUpdate = beforeUpdate;
         if (enabled) RequestRefresh();
     }
@@ -92,37 +95,29 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         feed.CheckConnection();
         var agent = AgentHUD.Instance();
         var player = objects.LocalPlayer?.Name.TextValue;
-        var count = agent == null || player == null ? 0 : Math.Clamp((int)agent->PartyMemberCount, 0, Slots);
+        var addon = CurrentAddon();
         var damage = feed.Damage;
         bool changed = damage != previousDamage || player != localName;
         localName = player;
         previousDamage = damage;
         for (int i = 0; i < Slots; i++)
         {
-            string name = i < count ? agent->PartyMembers[i].Name.ToString() : "";
+            var node = NameNode(addon, i);
+            string name = "";
+            if (player != null && node != null)
+            {
+                if (i < PlayerSlots && agent != null && i < agent->PartyMemberCount)
+                    name = agent->PartyMembers[i].Name.ToString();
+                else if (i >= PlayerSlots)
+                    name = NpcName(node, i);
+            }
             if (roster[i] == name) continue;
             changed = true;
             roster[i] = name;
             rosterBytes[i] = Encoding.UTF8.GetBytes(name);
         }
         if (!changed) return;
-
-        var matched = new List<(int Row, long Damage)>();
-        for (int i = 0; i < count; i++)
-        {
-            string name = roster[i];
-            if (name.Length == 0 || roster.Count(n => n == name) != 1) continue;
-            if (damage.TryGetValue(name, out long total) || (name == player && damage.TryGetValue("YOU", out total)))
-                matched.Add((i, total));
-        }
-        Array.Clear(labels);
-        decimal sum = matched.Sum(member => (decimal)member.Damage);
-        if (sum > 0)
-            foreach (var member in matched)
-            {
-                int rank = 1 + matched.Count(other => other.Damage > member.Damage);
-                labels[member.Row] = $"{rank}:{100m * member.Damage / sum:0}% ";
-            }
+        PartyDamageRanks.Calculate(roster, PlayerSlots, player, damage, labels);
         if (config.PartyDamageBeforeRequestedUpdate) RequestRefresh();
     }
 
@@ -140,79 +135,76 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         return cache[row] = new(target, label, [..text, 0], [..Encoding.UTF8.GetBytes(label), ..text[start..], 0]);
     }
 
-    private bool RowMatches(int i, AgentHUD* agent) => labels[i] != null && agent != null &&
-        i < agent->PartyMemberCount && agent->PartyMembers[i].Name.AsSpan().SequenceEqual(rosterBytes[i]);
+    private AddonPartyList* CurrentAddon() => (AddonPartyList*)gui.GetAddonByName(Addon).Address;
 
-    private void BeforeDraw(AddonEvent _, AddonArgs args)
+    private static AtkTextNode* NameNode(AddonPartyList* addon, int slot)
     {
-        if (config.PartyDamageBeforeRequestedUpdate) return;
-        var addon = (AddonPartyList*)args.Addon.Address;
+        if (addon == null) return null;
+        if (slot < PlayerSlots)
+            return slot < addon->MemberCount ? addon->PartyMembers[slot].Name : null;
+        int npc = slot - PlayerSlots;
+        return npc < addon->TrustCount ? addon->TrustMembers[npc].Name : null;
+    }
+
+    private static bool IsApplied(AtkTextNode* node, Edit edit) => (nint)node == edit.Target &&
+        node->NodeText.AsSpan().SequenceEqual(edit.Replacement.AsSpan(0, edit.Replacement.Length - 1));
+
+    private string NpcName(AtkTextNode* node, int row)
+    {
+        var text = node->NodeText.AsSpan();
+        if (edits[row] is { } edit && IsApplied(node, edit))
+            text = edit.Original.AsSpan(0, edit.Original.Length - 1);
+        string name = SeString.Parse(text).TextValue.Trim();
+        int prefix = 0;
+        while (prefix < name.Length && name[prefix] is >= '\uE060' and <= '\uE06F') prefix++;
+        return name[prefix..].TrimStart();
+    }
+
+    private void ApplyRows(AddonPartyList* addon)
+    {
         var agent = AgentHUD.Instance();
-        for (int i = 0; i < Math.Min(Slots, (int)addon->MemberCount); i++)
+        for (int i = 0; i < Slots; i++)
         {
-            var node = addon->PartyMembers[i].Name;
-            if (node == null || !RowMatches(i, agent)) continue;
-            if (Replace(i, (nint)node, node->NodeText.AsSpan(), labels[i]!) is not { } edit) continue;
+            var node = NameNode(addon, i);
+            if (node == null || labels[i] is not { } label) continue;
+            if (i < PlayerSlots && (agent == null || i >= agent->PartyMemberCount ||
+                !agent->PartyMembers[i].Name.AsSpan().SequenceEqual(rosterBytes[i]))) continue;
+            var text = node->NodeText.AsSpan();
+            if (i >= PlayerSlots && !text.EndsWith(rosterBytes[i].AsSpan()) && NpcName(node, i) != roster[i]) continue;
+            if (Replace(i, (nint)node, text, label) is not { } edit) continue;
             edits[i] = edit;
             node->SetText(edit.Replacement.AsSpan());
         }
     }
 
-    private void AfterDraw(AddonEvent _, AddonArgs args)
+    private void RestoreRows(AddonPartyList* addon)
     {
-        if (config.PartyDamageBeforeRequestedUpdate) return;
-        var addon = (AddonPartyList*)args.Addon.Address;
         for (int i = 0; i < Slots; i++)
         {
             if (edits[i] is not { } edit) continue;
             edits[i] = null;
-            var node = addon->PartyMembers[i].Name;
-            if ((nint)node == edit.Target && node->NodeText.AsSpan().SequenceEqual(edit.Replacement.AsSpan(0, edit.Replacement.Length-1)))
-                node->SetText(edit.Original.AsSpan());
+            var node = NameNode(addon, i);
+            if (node != null && IsApplied(node, edit)) node->SetText(edit.Original.AsSpan());
         }
     }
 
-    private static StringArrayData* Names(AddonArgs args)
+    private void BeforeDraw(AddonEvent _, AddonArgs args)
     {
-        var arrays = (StringArrayData**)((AddonRequestedUpdateArgs)args).StringArrayData;
-        return arrays == null ? null : arrays[(int)StringArrayType.PartyList];
+        if (!config.PartyDamageBeforeRequestedUpdate) ApplyRows((AddonPartyList*)args.Addon.Address);
     }
 
-    private static int NameIndex(StringArrayData* names, int row)
+    private void AfterDraw(AddonEvent _, AddonArgs args)
     {
-        var layout = (PartyListStringArray*)names->StringArray;
-        fixed (InteropGenerator.Runtime.CStringPointer* name = &layout->Members[row].Name)
-            return (int)(name - names->StringArray);
+        if (!config.PartyDamageBeforeRequestedUpdate) RestoreRows((AddonPartyList*)args.Addon.Address);
     }
 
     private void BeforeUpdate(AddonEvent _, AddonArgs args)
     {
-        if (!config.PartyDamageBeforeRequestedUpdate) return;
-        var names = Names(args);
-        if (names == null || names->StringArray == null || names->Size < sizeof(PartyListStringArray)/sizeof(nint)) return;
-        var agent = AgentHUD.Instance();
-        for (int i = 0; i < Slots; i++)
-        {
-            if (!RowMatches(i, agent)) continue;
-            int index = NameIndex(names,i);
-            if (Replace(i, (nint)names, names->StringArray[index].AsSpan(), labels[i]!) is not { } edit) continue;
-            edits[i] = edit;
-            names->SetValue(index, edit.Replacement.AsSpan(), false, true, true);
-        }
+        if (config.PartyDamageBeforeRequestedUpdate) RestoreRows((AddonPartyList*)args.Addon.Address);
     }
 
     private void AfterUpdate(AddonEvent _, AddonArgs args)
     {
-        if (!config.PartyDamageBeforeRequestedUpdate) return;
-        var names = Names(args);
-        for (int i = 0; i < Slots; i++)
-        {
-            if (edits[i] is not { } edit) continue;
-            edits[i] = null;
-            if (edit.Target != (nint)names) continue;
-            int index = NameIndex(names,i);
-            if (names->StringArray[index].AsSpan().SequenceEqual(edit.Replacement.AsSpan(0,edit.Replacement.Length-1)))
-                names->SetValue(index, edit.Original.AsSpan(), false, true, true);
-        }
+        if (config.PartyDamageBeforeRequestedUpdate) ApplyRows((AddonPartyList*)args.Addon.Address);
     }
 }
