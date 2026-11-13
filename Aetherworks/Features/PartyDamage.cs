@@ -113,8 +113,8 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
             {
                 if (i < PlayerSlots && agent != null && i < agent->PartyMemberCount)
                     name = agent->PartyMembers[i].Name.ToString();
-                else if (i >= PlayerSlots)
-                    name = NpcName(node, i);
+                if (string.IsNullOrWhiteSpace(name))
+                    name = DisplayName(node, i);
             }
             if (roster[i] == name) continue;
             changed = true;
@@ -132,11 +132,8 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         if (text.IsEmpty) return null;
         if (cache[row] is { } cached && cached.Target == target && cached.Member == roster[row] && cached.Label == label &&
             text.SequenceEqual(cached.Original.AsSpan(0, cached.Original.Length - 1))) return cached;
-        int start = 0;
-        while (text.Length - start >= 3 && text[start] == 0xEE && text[start + 1] == 0x81 &&
-               text[start + 2] is >= 0xA0 and <= 0xAF) start += 3; // U+E060..U+E06F
-        if (start > 0)
-            while (start < text.Length && text[start] == (byte)' ') start++;
+        var (start, end) = LevelRange(text);
+        if (start < 0) return null;
         var rgb = config.PartyDamageColor;
         var prefix = new Lumina.Text.SeStringBuilder()
             .PushColorRgba(new System.Numerics.Vector4(rgb, 1f));
@@ -148,7 +145,10 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
                 : ch);
         }
         prefix.PopColor();
-        return cache[row] = new(target, roster[row], label, [..text, 0], [..prefix.ToArray(), (byte)' ', ..text[start..], 0]);
+        var replacement = prefix.ToArray();
+        byte[] separator = end < text.Length && text[end] == (byte)' ' ? [] : [(byte)' '];
+        return cache[row] = new(target, roster[row], label, [..text, 0],
+            [..text[..start], ..replacement, ..separator, ..text[end..], 0]);
     }
 
     private AddonPartyList* CurrentAddon() => (AddonPartyList*)gui.GetAddonByName(Addon).Address;
@@ -165,15 +165,34 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     private static bool IsApplied(AtkTextNode* node, Edit edit) => (nint)node == edit.Target &&
         node->NodeText.AsSpan().SequenceEqual(edit.Replacement.AsSpan(0, edit.Replacement.Length - 1));
 
-    private string NpcName(AtkTextNode* node, int row)
+    private static (int Start, int End) LevelRange(ReadOnlySpan<byte> text)
+    {
+        int offset = 0;
+        foreach (var payload in new Lumina.Text.ReadOnly.ReadOnlySeStringSpan(text))
+        {
+            if (payload.Type == Lumina.Text.ReadOnly.ReadOnlySePayloadType.Text)
+            {
+                var (start, end) = PartyLevelText.Locate(payload.Body);
+                if (start >= 0) return (offset + start, offset + end);
+            }
+            offset += payload.EnvelopeByteLength;
+        }
+        return (-1, -1);
+    }
+
+    private string DisplayName(AtkTextNode* node, int row)
     {
         var text = node->NodeText.AsSpan();
         if (edits[row] is { } edit && IsApplied(node, edit))
             text = edit.Original.AsSpan(0, edit.Original.Length - 1);
-        string name = SeString.Parse(text).TextValue.Trim();
-        int prefix = 0;
-        while (prefix < name.Length && name[prefix] is >= '\uE060' and <= '\uE06F') prefix++;
-        return name[prefix..].TrimStart();
+        var (_, end) = LevelRange(text);
+        if (end < 0) return "";
+        // Parse the complete string so embedded control payloads stay intact.
+        string name = SeString.Parse(text[end..]).TextValue.Trim();
+        int first = 0;
+        while (first < name.Length && (char.IsWhiteSpace(name[first]) || char.GetUnicodeCategory(name[first])
+               == System.Globalization.UnicodeCategory.PrivateUse)) first++;
+        return name[first..];
     }
 
     private void ApplyRows(AddonPartyList* addon)
@@ -187,10 +206,10 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
             if (!owned) edits[i] = null;
             var label = labels[i];
             if (node == null) continue;
-            bool matches = label != null && (i < PlayerSlots
-                ? agent != null && i < agent->PartyMemberCount &&
-                  agent->PartyMembers[i].Name.AsSpan().SequenceEqual(rosterBytes[i])
-                : owned ? applied!.Member == roster[i] : NpcName(node, i) == roster[i]);
+            bool matches = label != null && (i < PlayerSlots && agent != null && i < agent->PartyMemberCount &&
+                !agent->PartyMembers[i].Name.AsSpan().IsEmpty
+                ? agent->PartyMembers[i].Name.AsSpan().SequenceEqual(rosterBytes[i])
+                : owned ? applied!.Member == roster[i] : DisplayName(node, i) == roster[i]);
             if (!matches)
             {
                 if (owned) node->SetText(applied!.Original.AsSpan());

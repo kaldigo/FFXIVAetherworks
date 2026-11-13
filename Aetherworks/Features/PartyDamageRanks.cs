@@ -24,6 +24,10 @@ internal static class PartyDamageRanks
         decimal sum = matched.Sum(member => (decimal)member.Damage);
         if (sum == 0) return;
         bool padRank = roster.Count(name => !string.IsNullOrEmpty(name)) > 10;
+        // During an encounter every occupied row gets a label. Missing or ambiguous
+        // parser entries have no known rank or share yet.
+        for (int row = 0; row < roster.Length; row++)
+            if (!string.IsNullOrWhiteSpace(roster[row])) labels[row] = padRank ? "  -:  -% " : "-:  -% ";
         foreach (var member in matched)
         {
             int rank = 1 + matched.Count(other => other.Damage > member.Damage);

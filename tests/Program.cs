@@ -35,6 +35,18 @@ shares[largeParty[1]] = 0;
 Aetherworks.Features.PartyDamageRanks.Calculate(largeParty, 11, null, shares, padded);
 Check(padded[0] == "  1:100% " && padded[1] == "  2:  0% ", "Zero and one hundred percent fit");
 
+Check(padded[2] == "  -:  -% ", "Unreported occupied row gets an unknown label");
+var icon = "\uE040 ";
+var level = "\uE06A\uE069\uE060";
+var native = System.Text.Encoding.UTF8.GetBytes(icon + level + " Alisaie");
+var (start, end) = Aetherworks.Features.PartyLevelText.Locate(native);
+Check(System.Text.Encoding.UTF8.GetString(native[..start]) == icon &&
+    System.Text.Encoding.UTF8.GetString(native[end..]) == " Alisaie", "Replace only the level following a sync glyph");
+Check(Aetherworks.Features.PartyLevelText.Locate(System.Text.Encoding.UTF8.GetBytes(icon + "Alisaie")) ==
+    (start, start), "Preserve sync glyph when the row has no level");
+Check(Aetherworks.Features.PartyLevelText.Locate(System.Text.Encoding.UTF8.GetBytes(icon)) ==
+    (-1, -1), "Icon-only text before another payload is preserved");
+
 var withdrawal = new LeaveOneWithdrawal(42, 4000, 5, 100, 1, 99);
 Check(withdrawal.Amount == 98 && withdrawal.Matches(42, 100, 1, 99), "Withdraw a stack minus its reserved copy");
 Check((withdrawal with { Quantity = 2 }).Amount == 1, "Two-item stack leaves one");
