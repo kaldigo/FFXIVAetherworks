@@ -21,7 +21,7 @@ public sealed class Plugin : IDalamudPlugin
     public Plugin(IDalamudPluginInterface pluginInterface, ICommandManager commands, IPluginLog log,
         IClientState client, IPlayerState player, IObjectTable objects, ICondition condition,
         IGameInteropProvider interop, IChatGui chat, IFramework framework, IContextMenu contextMenu,
-        IGameGui gui, IDataManager data)
+        IGameGui gui, IDataManager data, IAddonLifecycle lifecycle)
     {
         this.pluginInterface = pluginInterface;
         this.commands = commands;
@@ -29,16 +29,17 @@ public sealed class Plugin : IDalamudPlugin
         config.EnabledTweaks ??= new(StringComparer.Ordinal);
         // Old choices never opt a character into the new feature.
         config.EnabledTweaks.IntersectWith([ReturnViaTeleport.FeatureId, SharedHotbarSync.FeatureId,
-            SaddlebagWithdrawLeaveOne.FeatureId]);
+            SaddlebagWithdrawLeaveOne.FeatureId, PartyDamage.FeatureId]);
         var fallback = new ReturnViaTeleport(client, player, objects, condition, interop, chat, log,
             () => config.SkipPaidTeleportConfirmation);
         var hotbarSync = new SharedHotbarSync(framework,
             new NativeSharedHotbars(client, player, objects, condition),
             new SharedHotbarStore(Path.Combine(pluginInterface.GetPluginConfigDirectory(), "shared-hotbars")), log);
         var withdrawal = new SaddlebagWithdrawLeaveOne(contextMenu, framework, gui, player, data, log, chat);
-        tweaks = new TweakManager([fallback, hotbarSync, withdrawal], config.EnabledTweaks,
+        var partyDamage = new PartyDamage(pluginInterface, lifecycle, framework, objects, client, config, log);
+        tweaks = new TweakManager([fallback, hotbarSync, withdrawal, partyDamage], config.EnabledTweaks,
             () => pluginInterface.SavePluginConfig(config), (ex, message) => log.Error(ex, message));
-        settings = new SettingsWindow(tweaks, config, fallback, hotbarSync);
+        settings = new SettingsWindow(tweaks, config, fallback, hotbarSync, partyDamage);
         var confirmation = new ReturnConfirmationWindow(fallback);
         fallback.ConfirmationRequested += confirmation.Open;
         windows.AddWindow(settings);

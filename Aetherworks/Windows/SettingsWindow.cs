@@ -14,12 +14,14 @@ public sealed class SettingsWindow : Window
     private readonly Configuration config;
     private readonly ReturnViaTeleport fallback;
     private readonly SharedHotbarSync hotbarSync;
+    private readonly PartyDamage partyDamage;
     private readonly AetherworksShell shell = new();
     private readonly AetherworksUiActions actions;
 
-    public SettingsWindow(TweakManager manager, Configuration config, ReturnViaTeleport fallback, SharedHotbarSync hotbarSync)
+    public SettingsWindow(TweakManager manager, Configuration config, ReturnViaTeleport fallback, SharedHotbarSync hotbarSync, PartyDamage partyDamage)
         : base("Aetherworks###AetherworksSettings", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
     {
+        this.partyDamage = partyDamage;
         this.manager = manager;
         this.config = config;
         this.fallback = fallback;
@@ -27,7 +29,8 @@ public sealed class SettingsWindow : Window
         Size = new Vector2(780,610);
         SizeCondition = ImGuiCond.FirstUseEver;
         SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(360,320), MaximumSize = new Vector2(float.MaxValue) };
-        actions = new AetherworksUiActions(SetFeature,SetSkipConfirmation,hotbarSync.ResolveConflicts,manager.Save,()=>IsOpen=false);
+        actions = new AetherworksUiActions(SetFeature,SetSkipConfirmation,hotbarSync.ResolveConflicts,manager.Save,()=>IsOpen=false,
+            value => { partyDamage.SetEntryPoint(value); manager.Save(); });
     }
     public override void PreDraw() => AetherworksChrome.PushTheme(ImGuiHelpers.GlobalScale);
     public override void PostDraw() => AetherworksChrome.PopTheme();
@@ -43,6 +46,7 @@ public sealed class SettingsWindow : Window
                     ? "Paid fallback enabled. Teleport starts without a fare confirmation."
                     : "Paid fallback enabled. Review the fare before travelling.",
                 SharedHotbarSync.FeatureId => hotbarSync.Status,
+                PartyDamage.FeatureId => partyDamage.Status,
                 _ => "Available from the saddlebag item menu for stacks of two or more."
             };
             UiTone tone = entry.IsEnabled ? UiTone.Good : UiTone.Neutral;
@@ -55,7 +59,7 @@ public sealed class SettingsWindow : Window
         }).ToArray();
         return new(features,config.SkipPaidTeleportConfirmation,hotbarSync.Faulted,
             hotbarSync.SharedBars.Select(SharedHotbarSnapshot.BarName).ToArray(),
-            hotbarSync.Conflicts.Select(c=>c.Label).ToArray(),manager.SaveError);
+            hotbarSync.Conflicts.Select(c=>c.Label).ToArray(),manager.SaveError, config.PartyDamageBeforeRequestedUpdate);
     }
     private void SetFeature(string id,bool enabled) => manager.SetEnabled(manager.Entries.First(e=>e.Tweak.Id==id),enabled);
     private void SetSkipConfirmation(bool value)

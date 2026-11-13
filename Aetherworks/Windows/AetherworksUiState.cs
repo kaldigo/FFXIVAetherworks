@@ -6,14 +6,14 @@ internal enum Workspace { Overview, Features, Recovery }
 internal sealed record FeatureView(string Id, string Name, string Category, string Description,
     bool Enabled, bool NeedsCleanup, string? Error, string Status, UiTone Tone = UiTone.Neutral);
 internal sealed record AetherworksUiState(IReadOnlyList<FeatureView> Features, bool SkipConfirmation,
-    bool SyncFaulted, IReadOnlyList<string> SharedBars, IReadOnlyList<string> Conflicts, string? SaveError)
+    bool SyncFaulted, IReadOnlyList<string> SharedBars, IReadOnlyList<string> Conflicts, string? SaveError, bool PartyDamageBeforeRequestedUpdate = false)
 {
     public int EnabledCount => Features.Count(f => f.Enabled);
     public int IssueCount => Features.Count(f => f.Error != null || f.NeedsCleanup) +
         (SyncFaulted ? 1 : 0) + (Conflicts.Count > 0 ? 1 : 0) + (SaveError != null ? 1 : 0);
 }
 internal sealed record AetherworksUiActions(Action<string, bool> SetFeature, Action<bool> SetSkipConfirmation,
-    Action<bool> ResolveConflicts, Action RetrySave, Action Close);
+    Action<bool> ResolveConflicts, Action RetrySave, Action Close, Action<bool>? SetPartyDamageEntryPoint = null);
 
 internal sealed class SettingsNavigation
 {

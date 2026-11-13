@@ -6,5 +6,6 @@ public sealed class Configuration : IPluginConfiguration
 {
     public int Version { get; set; } = 1;
     public HashSet<string> EnabledTweaks { get; set; } = new(StringComparer.Ordinal);
+    public bool PartyDamageBeforeRequestedUpdate { get; set; }
     public bool SkipPaidTeleportConfirmation { get; set; }
 }

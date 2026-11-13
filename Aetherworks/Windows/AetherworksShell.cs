@@ -262,6 +262,13 @@ internal sealed class AetherworksShell
         if(feature.Id==ReturnId) DrawReturn();
         else if(feature.Id==HotbarId) DrawHotbars(feature);
         else if(feature.Id==SaddlebagId) DrawSaddlebag();
+        else if(feature.Id=="party-damage" && feature.Enabled)
+        {
+            int mode = state.PartyDamageBeforeRequestedUpdate ? 1 : 0;
+            if (ImGui.Combo("Entry point", ref mode, new[] { "Before draw", "Before requested update" }, 2))
+                actions.SetPartyDamageEntryPoint?.Invoke(mode == 1);
+            Secondary(feature.Status);
+        }
         Secondary("Changes save automatically. Feature choices are independent.");
     }
     private void DrawReturn()
@@ -380,6 +387,7 @@ internal sealed class AetherworksShell
     {
         ReturnId=>"A paid trip home when Return is on cooldown.",
         HotbarId=>"Keep shared PvE and PvP assignments in step.",
+        "party-damage"=>"Show IINACT damage rank and share beside party names.",
         SaddlebagId=>"Withdraw a stack and leave one for easy entrusting.",
         _=>"An independently enabled convenience."
     };
