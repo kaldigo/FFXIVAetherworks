@@ -22,7 +22,7 @@ $rect=[Drawing.Rectangle]::new(0,0,640,480)
 $brush=[Drawing.Drawing2D.LinearGradientBrush]::new($rect,[Drawing.Color]::FromArgb(22,34,43),[Drawing.Color]::FromArgb(38,29,48),35.0)
 try { $graphics.FillRectangle($brush,$rect); $bitmap.Save($backdrop,[Drawing.Imaging.ImageFormat]::Png) }
 finally { $brush.Dispose(); $graphics.Dispose(); $bitmap.Dispose() }
-if (!$Scenes) { $Scenes=@('overview','overview-compact','first-run','features','return','return-compact','return-immediate','hotbars','hotbars-off','saddlebag','conflicts','recovery','recovery-compact','sync-paused','cleanup','waiting','minimum','minimum-scrolled','empty-search','rail-hover','navigate-features','open-detail','back-to-search','toggle-feature','toggle-confirmation','scale-150','travel-confirmation') }
+if (!$Scenes) { $Scenes=@('overview','overview-compact','first-run','features','return','return-compact','return-immediate','hotbars','hotbars-off','saddlebag','conflicts','recovery','recovery-compact','sync-paused','cleanup','waiting','minimum','minimum-scrolled','empty-search','rail-hover','navigate-features','ember-search','toggle-feature','toggle-confirmation','scale-150','travel-confirmation') }
 foreach ($scene in $Scenes) {
     & $Renderer --assembly $assembly --scene $scene --out (Join-Path $OutputDirectory "$scene.png") --backdrop $backdrop --warp --deterministic
     if ($LASTEXITCODE) { throw "Preview failed: $scene" }

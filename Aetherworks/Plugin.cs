@@ -43,7 +43,7 @@ public sealed class Plugin : IDalamudPlugin
         var partyDamageWithHeader = new PartyDamageWithHeader(partyDamage, lifecycle, events, gui, config, ember.Toggle, ember.SetEnabled);
         tweaks = new TweakManager([fallback, hotbarSync, withdrawal, partyDamageWithHeader, new PartyShieldBar(lifecycle, gui)], config.EnabledTweaks,
             () => pluginInterface.SavePluginConfig(config), (ex, message) => log.Error(ex, message));
-        settings = new SettingsWindow(tweaks, config, fallback, hotbarSync, partyDamage, ember.DrawOptions);
+        settings = new SettingsWindow(tweaks, config, fallback, hotbarSync, partyDamage, ember.ApplyZoom);
         var confirmation = new ReturnConfirmationWindow(fallback);
         fallback.ConfirmationRequested += confirmation.Open;
         pluginInterface.UiBuilder.Draw += ember.Draw;

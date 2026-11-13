@@ -6,8 +6,13 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <DalamudLibPath Condition="'$(DALAMUD_HOME)' != ''">$(DALAMUD_HOME)</DalamudLibPath>
     <DalamudLibPath Condition="'$(DalamudLibPath)' == ''">$(appdata)/XIVLauncher/addon/Hooks/dev</DalamudLibPath>
+    <AetherglassUIProject Condition="'$(AetherglassUIProject)' == '' and Exists('../.dependencies/AetherglassUI/Library/AetherglassUI.csproj')">../.dependencies/AetherglassUI/Library/AetherglassUI.csproj</AetherglassUIProject>
+    <AetherglassUIProject Condition="'$(AetherglassUIProject)' == '' and Exists('../../../AetherglassUI/Library/AetherglassUI.csproj')">../../../AetherglassUI/Library/AetherglassUI.csproj</AetherglassUIProject>
+    <AetherglassUIProject Condition="'$(AetherglassUIProject)' == ''">../../AetherglassUI/Library/AetherglassUI.csproj</AetherglassUIProject>
   </PropertyGroup>
+  <ItemGroup><ProjectReference Include="$(AetherglassUIProject)" /></ItemGroup>
   <ItemGroup>
+    <Compile Include="../Aetherworks/Ember/EmberOptions.cs" />
     <Compile Include="../Aetherworks/Windows/Aetherworks*.cs" Link="Window/%(Filename)%(Extension)" />
     <PackageReference Include="Glasswork.Backend" Version="0.1.0-beta.3" />
     <Reference Include="Dalamud.Bindings.ImGui"><HintPath>$(DalamudLibPath)/Dalamud.Bindings.ImGui.dll</HintPath><Private>false</Private></Reference>

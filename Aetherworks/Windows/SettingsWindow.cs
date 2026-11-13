@@ -18,7 +18,7 @@ public sealed class SettingsWindow : Window
     private readonly AetherworksShell shell = new();
     private readonly AetherworksUiActions actions;
 
-    public SettingsWindow(TweakManager manager, Configuration config, ReturnViaTeleport fallback, SharedHotbarSync hotbarSync, PartyDamage partyDamage, Action<Action> drawEmberOptions)
+    public SettingsWindow(TweakManager manager, Configuration config, ReturnViaTeleport fallback, SharedHotbarSync hotbarSync, PartyDamage partyDamage, Action<float> applyZoom)
         : base("Aetherworks###AetherworksSettings", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
     {
         this.partyDamage = partyDamage;
@@ -31,10 +31,8 @@ public sealed class SettingsWindow : Window
         SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(360,320), MaximumSize = new Vector2(float.MaxValue) };
         actions = new AetherworksUiActions(SetFeature,SetSkipConfirmation,hotbarSync.ResolveConflicts,manager.Save,()=>IsOpen=false,
             value => { partyDamage.SetEntryPoint(value); manager.Save(); },
-            color => { partyDamage.SetColor(color); manager.Save(); }, () => drawEmberOptions(() => manager.Save()));
+            color => { partyDamage.SetColor(color); manager.Save(); }, () => { applyZoom(config.Ember.Zoom); manager.Save(); }, manager.Save);
     }
-    public override void PreDraw() => AetherworksChrome.PushTheme(ImGuiHelpers.GlobalScale);
-    public override void PostDraw() => AetherworksChrome.PopTheme();
     public override void Draw() => shell.Draw(Snapshot(),actions,ImGuiHelpers.GlobalScale);
 
     private AetherworksUiState Snapshot()
@@ -61,7 +59,7 @@ public sealed class SettingsWindow : Window
         }).ToArray();
         return new(features,config.SkipPaidTeleportConfirmation,hotbarSync.Faulted,
             hotbarSync.SharedBars.Select(SharedHotbarSnapshot.BarName).ToArray(),
-            hotbarSync.Conflicts.Select(c=>c.Label).ToArray(),manager.SaveError, config.PartyDamageBeforeRequestedUpdate, config.PartyDamageColor);
+            hotbarSync.Conflicts.Select(c => $"{c.Label} · PvE {c.PvE} · PvP {c.PvP}").ToArray(),manager.SaveError, config.PartyDamageBeforeRequestedUpdate, config.PartyDamageColor, config.Ember);
     }
     private void SetFeature(string id,bool enabled) => manager.SetEnabled(manager.Entries.First(e=>e.Tweak.Id==id),enabled);
     private void SetSkipConfirmation(bool value)

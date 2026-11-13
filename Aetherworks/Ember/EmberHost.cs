@@ -91,28 +91,7 @@ internal sealed class EmberHost(IDalamudPluginInterface plugin, EmberOptions opt
         renderer.Start();
     }
 
-    public void DrawOptions(Action save)
-    {
-        bool changed = ImGui.InputFloat("Zoom", ref options.Zoom, 1, 10, "%.0f%%");
-        if (changed)
-        {
-            options.Zoom = Math.Clamp(options.Zoom, 10, 500);
-            overlay?.Zoom(options.Zoom);
-        }
-        if (ImGui.InputFloat("Opacity", ref options.Opacity, 1, 10, "%.0f%%"))
-        {
-            options.Opacity = Math.Clamp(options.Opacity, 10, 100);
-            changed = true;
-        }
-        changed |= ImGui.Checkbox("Locked", ref options.Locked);
-        changed |= ImGui.Checkbox("Hide out of combat", ref options.HideOutOfCombat);
-        changed |= ImGui.Checkbox("Hide in PvP", ref options.HideInPvP);
-        ImGui.BeginDisabled(!options.HideOutOfCombat);
-        changed |= ImGui.InputInt("Hide delay (seconds)", ref options.HideDelay);
-        ImGui.EndDisabled();
-        options.HideDelay = Math.Max(0, options.HideDelay);
-        if (changed) save();
-    }
+    public void ApplyZoom(float zoom) => overlay?.Zoom(zoom);
 
     public void Dispose()
     {
