@@ -34,7 +34,6 @@ internal sealed unsafe class PartyDamageWithHeader(PartyDamage rows, IAddonLifec
         enabled = true;
         enableEmber(true);
         lifecycle.RegisterListener(AddonEvent.PreDraw, Addon, BeforeDraw);
-        lifecycle.RegisterListener(AddonEvent.PostDraw, Addon, AfterDraw);
         lifecycle.RegisterListener(AddonEvent.PreFinalize, Addon, BeforeFinalize);
     }
 
@@ -42,10 +41,8 @@ internal sealed unsafe class PartyDamageWithHeader(PartyDamage rows, IAddonLifec
     {
         enabled = false;
         lifecycle.UnregisterListener(BeforeDraw);
-        lifecycle.UnregisterListener(AfterDraw);
         lifecycle.UnregisterListener(BeforeFinalize);
         var addon = (AddonPartyList*)gui.GetAddonByName(Addon).Address;
-        rows.RestoreCastDraw(addon);
         DetachHeader(addon);
         enableEmber(false);
         rows.Disable();
@@ -56,14 +53,10 @@ internal sealed unsafe class PartyDamageWithHeader(PartyDamage rows, IAddonLifec
         var addon = (AddonPartyList*)args.Addon.Address;
         AttachHeader(addon);
         if (headerClick != null) DrawHeaderIndicator(addon->PartyTypeTextNode);
-        rows.DrawCastShares(addon);
     }
-
-    private void AfterDraw(AddonEvent _, AddonArgs args) => rows.RestoreCastDraw((AddonPartyList*)args.Addon.Address);
 
     private void BeforeFinalize(AddonEvent _, AddonArgs args)
     {
-        rows.RestoreCastDraw((AddonPartyList*)args.Addon.Address);
         DetachHeader((AddonPartyList*)args.Addon.Address);
     }
 

@@ -46,6 +46,7 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
         framework.Update += Update;
         client.TerritoryChanged += TerritoryChanged;
         lifecycle.RegisterListener(AddonEvent.PreDraw, Addon, BeforeDraw);
+        lifecycle.RegisterListener(AddonEvent.PostDraw, Addon, AfterDraw);
         lifecycle.RegisterListener(AddonEvent.PreFinalize, Addon, BeforeFinalize);
         lifecycle.RegisterListener(AddonEvent.PostRequestedUpdate, Addon, AfterUpdate);
         nextPoll = 0;
@@ -58,6 +59,7 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
         framework.Update -= Update;
         client.TerritoryChanged -= TerritoryChanged;
         lifecycle.UnregisterListener(BeforeDraw);
+        lifecycle.UnregisterListener(AfterDraw);
         lifecycle.UnregisterListener(BeforeFinalize);
         lifecycle.UnregisterListener(AfterUpdate);
         feed.Stop();
@@ -223,6 +225,7 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
             UpdateIndicator(addon, strings, i, id, id != 0 && id == entityIds[i] && labels[i] != null ? ranks[i] : 0);
             if (node == null) { edits[i] = null; continue; }
             var original = strings->Members[i].Name.AsSpan();
+            if (castShares[i] is { } casting && casting.Node == (nint)node && casting.Entity == id) continue;
             if (original.IsEmpty) continue;
             if (labels[i] is not { } label || entityIds[i] == 0 || RowId(numbers, i) != entityIds[i])
             {
@@ -241,6 +244,7 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
 
     private void RestoreRows(AddonPartyList* addon)
     {
+        RestoreCastVisibility(addon);
         var strings = PartyListStringArray.Instance();
         for (int i = 0; i < Slots; i++)
         {
@@ -248,19 +252,27 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
             edits[i] = null;
             if (strings != null) UpdateIndicator(addon, strings, i, 0, 0);
             var node = NameNode(addon, i);
-            if (node == null || previous?.Target != (nint)node || strings == null) continue;
+            var casting = castShares[i];
+            castShares[i] = null;
+            if (node == null || strings == null || (previous?.Target != (nint)node && casting?.Node != (nint)node)) continue;
             var original = strings->Members[i].Name.AsSpan();
-            if (!original.IsEmpty) node->SetText((ReadOnlySpan<byte>)[..original, 0]);
+            node->SetText((ReadOnlySpan<byte>)[..original, 0]);
         }
     }
 
     private void BeforeDraw(AddonEvent _, AddonArgs args)
     {
-        if (!config.PartyDamageBeforeRequestedUpdate) ApplyRows((AddonPartyList*)args.Addon.Address);
+        var addon = (AddonPartyList*)args.Addon.Address;
+        if (!config.PartyDamageBeforeRequestedUpdate) ApplyRows(addon);
+        DrawCastShares(addon);
     }
+
+    private void AfterDraw(AddonEvent _, AddonArgs args) => RestoreCastVisibility((AddonPartyList*)args.Addon.Address);
 
     private void BeforeFinalize(AddonEvent _, AddonArgs args)
     {
+        RestoreCastVisibility((AddonPartyList*)args.Addon.Address);
+        Array.Clear(castShares);
         Array.Clear(indicators);
         Array.Clear(edits);
         Array.Clear(cache);
