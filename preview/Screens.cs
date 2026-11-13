@@ -1,5 +1,6 @@
 using System.Numerics;
 using Aetherworks.Windows;
+using Aetherworks;
 using Glasswork;
 using Glasswork.Backend.Preview;
 using Dalamud.Bindings.ImGui;
@@ -11,6 +12,7 @@ public abstract class Screen : IPreviewScreen
     private readonly AetherworksShell shell = new();
     private AetherworksUiState state;
     private int frames;
+    protected int FeatureRowsShown => shell.FeatureRowsShown;
     private protected SettingsNavigation Navigation => shell.Navigation;
     private protected AetherworksUiState State { get=>state; set=>state=value; }
     private readonly AetherworksUiActions actions;
@@ -41,9 +43,8 @@ public abstract class Screen : IPreviewScreen
     {
         ImGui.GetIO().FontGlobalScale=UiScale;
         ImGui.SetWindowFontScale(1);
-        AetherworksChrome.PushTheme(UiScale);
-        try { shell.Draw(state,actions,UiScale); Verify(++frames); }
-        finally { AetherworksChrome.PopTheme(); }
+        shell.Draw(state,actions,UiScale);
+        Verify(++frames);
     }
     private static AetherworksUiState Sample(bool problems,bool allOff)
     {
@@ -52,10 +53,12 @@ public abstract class Screen : IPreviewScreen
                 allOff?"This convenience is switched off.":"Paid fallback enabled. Review the fare before travelling.",allOff?UiTone.Neutral:UiTone.Good),
             new(AetherworksShell.HotbarId,"Shared Hotbar Sync","Hotbars","Sync shared PvE and PvP keyboard and cross hotbar assignments",!allOff,false,null,
                 allOff?"This convenience is switched off.":problems?"2 conflicting slots need a choice. Other shared slots continue syncing.":"Syncing 3 shared hotbars in both directions.",allOff?UiTone.Neutral:problems?UiTone.Attention:UiTone.Good),
+            new("party-damage","Party list damage","Party list","Display party damage rank and share",!allOff,false,null,"IINACT party damage"),
+            new("party-shield-bar","Party shield bar","Party list","Display overflow shields",false,false,null,"Disabled"),
             new(AetherworksShell.SaddlebagId,"Saddlebag Withdraw All but One","Items and storage","Leave one in the selected stack for duplicate entrusting",false,false,null,"This convenience is switched off.")
         ];
         return new(features,false,false,allOff?[]:["Hotbar 1","Hotbar 2","Cross hotbar 1"],
-            problems?["Hotbar 1, slot 4","Cross hotbar 1, slot 12"]:[],problems?"Your changes may not survive a reload. Retry saving to keep them.":null);
+            problems?["Hotbar 1, slot 4","Cross hotbar 1, slot 12"]:[],problems?"Your changes may not survive a reload. Retry saving to keep them.":null, Ember: new EmberOptions());
     }
 }
 public enum WorkspaceStart { Overview, Features, Recovery }
@@ -104,7 +107,7 @@ public sealed class Cleanup : Screen
 }
 public sealed class Navigate() : Screen
 {
-    private static readonly PreviewInput[] Steps=[new(3,PreviewInputKind.Press,new(36,138)),new(4,PreviewInputKind.Release,new(36,138)),new(10,PreviewInputKind.Move,new(300,40))];
+    private static readonly PreviewInput[] Steps=[new(3,PreviewInputKind.Press,new(25,128)),new(4,PreviewInputKind.Release,new(25,128)),new(10,PreviewInputKind.Move,new(300,40))];
     public override ReadOnlySpan<PreviewInput> Script=>Steps;
     public override string Name=>"navigate-features";
     protected override void Verify(int frame)
@@ -112,28 +115,13 @@ public sealed class Navigate() : Screen
         if(frame==9 && Navigation.Area!=Workspace.Features) throw new InvalidOperationException("Rail navigation did not open Features.");
     }
 }
-public sealed class BackToSearch : Screen
+public sealed class EmberSearch : Screen
 {
-    public BackToSearch():base(WorkspaceStart.Features,"shared-hotbar-sync")=>Search("hotbar");
-    private static readonly PreviewInput[] Steps=[new(3,PreviewInputKind.Press,new(100,82)),new(4,PreviewInputKind.Release,new(100,82)),new(10,PreviewInputKind.Move,new(300,40))];
-    public override ReadOnlySpan<PreviewInput> Script=>Steps;
-    public override string Name=>"back-to-search";
+    public EmberSearch():base(WorkspaceStart.Features) => Search("ember");
+    public override string Name => "ember-search";
     protected override void Verify(int frame)
     {
-        if(frame==9 && (Navigation.Area!=Workspace.Features || Navigation.Feature!=null || Navigation.Search!="hotbar"))
-            throw new InvalidOperationException("Back did not preserve the originating feature search.");
-    }
-}
-public sealed class OpenDetail : Screen
-{
-    public OpenDetail():base(WorkspaceStart.Features)=>Search("hotbar");
-    private static readonly PreviewInput[] Steps=[new(3,PreviewInputKind.Press,new(710,225)),new(4,PreviewInputKind.Release,new(710,225)),new(10,PreviewInputKind.Move,new(300,40))];
-    public override ReadOnlySpan<PreviewInput> Script=>Steps;
-    public override string Name=>"open-detail";
-    protected override void Verify(int frame)
-    {
-        if(frame==9 && Navigation.Feature!=AetherworksShell.HotbarId)
-            throw new InvalidOperationException("Configure did not open the Shared Hotbar Sync detail page.");
+        if (frame == 3 && FeatureRowsShown != 6) throw new InvalidOperationException("Expected six Ember setting rows.");
     }
 }
 public sealed class Waiting : Screen
@@ -147,7 +135,7 @@ public sealed class Waiting : Screen
 }
 public sealed class ToggleFeature() : Screen(WorkspaceStart.Features,"return-via-teleport")
 {
-    private static readonly PreviewInput[] Steps=[new(3,PreviewInputKind.Press,new(714,200)),new(4,PreviewInputKind.Release,new(714,200)),new(10,PreviewInputKind.Move,new(300,40))];
+    private static readonly PreviewInput[] Steps=[new(3,PreviewInputKind.Press,new(714,208)),new(4,PreviewInputKind.Release,new(714,208)),new(10,PreviewInputKind.Move,new(300,40))];
     public override ReadOnlySpan<PreviewInput> Script=>Steps;
     public override string Name=>"toggle-feature";
     protected override void Verify(int frame)
@@ -158,7 +146,7 @@ public sealed class ToggleFeature() : Screen(WorkspaceStart.Features,"return-via
 }
 public sealed class ToggleConfirmation() : Screen(WorkspaceStart.Features,"return-via-teleport")
 {
-    private static readonly PreviewInput[] Steps=[new(3,PreviewInputKind.Press,new(714,376)),new(4,PreviewInputKind.Release,new(714,376)),new(10,PreviewInputKind.Move,new(300,40))];
+    private static readonly PreviewInput[] Steps=[new(3,PreviewInputKind.Press,new(714,315)),new(4,PreviewInputKind.Release,new(714,315)),new(10,PreviewInputKind.Move,new(300,40))];
     public override ReadOnlySpan<PreviewInput> Script=>Steps;
     public override string Name=>"toggle-confirmation";
     protected override void Verify(int frame)
@@ -182,9 +170,7 @@ public sealed class Travel : IPreviewScreen
     public ReadOnlySpan<PreviewInput> Script=>[];
     public void Draw()
     {
-        AetherworksChrome.PushTheme(1);
-        try { AetherworksTravelPanel.Draw("Old Sharlayan",999,()=>{},()=>{},1); }
-        finally { AetherworksChrome.PopTheme(); }
+        AetherworksTravelPanel.Draw("Old Sharlayan",999,()=>{},()=>{});
     }
 }
 public sealed class EmptySearch : Screen

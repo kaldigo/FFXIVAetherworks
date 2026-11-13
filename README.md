@@ -2,11 +2,11 @@
 
 ![Aetherworks icon](assets/icon.png)
 
-A Dalamud API 15 plugin for Final Fantasy XIV. Version 0.2.1.4 contains three independently enabled features: **Return via Teleport**, **Shared Hotbar Sync**, and **Saddlebag Withdraw All but One**.
+A Dalamud API 15 plugin for Final Fantasy XIV. Independent conveniences include party-list damage, overflow shields, **Return via Teleport**, **Shared Hotbar Sync**, and **Saddlebag Withdraw All but One**.
 
 ## Saddlebag Withdraw All but One
 
-Open `/aetherworks`, select **Saddlebag Withdraw All but One** under **Items and storage**, and turn on **Enable feature**. Right-click a saddlebag stack of two or more and choose **Withdraw all but one**. A stack of 99 withdraws 98; a stack of two withdraws one. The reserved copy lets Pandora's Entrust Duplicates button match the item when putting it back. The feature starts disabled.
+Open `/aetherworks`, select **Saddlebag Withdraw All but One** in **Features**, and turn on **Enable feature**. Right-click a saddlebag stack of two or more and choose **Withdraw all but one**. A stack of 99 withdraws 98; a stack of two withdraws one. The reserved copy lets Pandora's Entrust Duplicates button match the item when putting it back. The feature starts disabled.
 
 Regular and premium saddlebag tabs are supported. Only the selected stack is affected; HQ/NQ remain separate. Single copies have no extra menu entry. The feature uses the game's localized **Remove from Saddlebag** action beside **Remove All from Saddlebag**, then submits the stack minus one to its **How many do you want to remove?** dialog. Version 0.2.1.3 corrects the retainer menu/prompt labels mistakenly used in 0.2.1.2. Source changes, character/tab changes, unavailable actions and unrelated dialogs stop automatic submission. Unexpected failures produce a chat error and log detail. If the requested amount cannot be submitted, any opened quantity dialog remains for manual handling. Normal quantity actions stay manual. Native in-game testing, including coexistence with Pandora, remains pending.
 
@@ -14,7 +14,7 @@ References: [Simple Tweaks quantity dialog](https://github.com/Caraxi/SimpleTwea
 
 ## Return via Teleport
 
-Enable Aetherworks in the plugin installer, open `/aetherworks`, select **Return via Teleport** under **Actions**, and turn on **Enable feature**. The feature starts disabled, including when upgrading from older versions.
+Enable Aetherworks in the plugin installer, open `/aetherworks`, select **Return via Teleport** in **Features**, and turn on **Enable feature**. The feature starts disabled, including when upgrading from older versions.
 
 Use your normal Return button:
 
@@ -43,11 +43,9 @@ State and backups live in `shared-hotbars` inside Aetherworks' plugin configurat
 
 ## Settings
 
-The settings redesign follows the workspace's Plugin UI Design Guide and its Auto Keybound Brawler / Auto Sightseeing Log page references. `/aetherworks` opens **Overview**, with a compact summary and grouped quick controls. Each convenience has its current status, a right-aligned enable switch and Settings button. A header badge highlights enabled features or issues needing attention. The fixed icon rail opens **Overview**, **Features**, or **Status & recovery**; hover or focus an icon to see its name.
+Open `/aetherworks` for an overview of the five conveniences. Use a switch to enable a feature or choose **Settings** to jump to its rows. **Features** filters individual settings as you type. Search for **Ember** to see its six overlay preferences when party-list damage is enabled. **Status & recovery** lists save failures, pending cleanup and conflicting hotbar assignments. The footer shows issues from every workspace.
 
-**Features** provides category grouping and search. Opening a feature shows its scope and immediate settings. Back restores the originating workspace and search. **Status & recovery** exposes hotbar conflicts, paused sync, cleanup failures and backup guidance. Save failures stay above the scrolling content with **Retry saving**. Narrow windows keep the rail and stack conflict actions; the minimum supported size is 360 × 320 logical units. There is no global feature toggle.
-
-Feature settings use aligned label-and-switch rows with related controls grouped together. **Ask before paid travel** is on when the existing skip-confirmation preference is off. The paid Teleport confirmation shares the same appearance and keeps destination, fare, Teleport and Cancel together. Existing confirmation, lifecycle and save handlers are retained. No Glasswork runtime dependency was added: Glasswork.Preview 0.1.0-beta.3 is used only by the offline preview project.
+The plugin and its offline preview reference the same AetherglassUI project. CI checks out the pinned library into `.dependencies/AetherglassUI` and packages `AetherglassUI.dll`. For a local build, check out the library beside the plugin repository or set the MSBuild property `AetherglassUIProject` to its library project.
 
 Run `./preview/render.ps1` to render the actual chrome, shell and confirmation panel with sample state. See [UI review and preview coverage](docs/ui-review.md). These offline images do not establish native font scaling, controller focus or live game behavior.
 

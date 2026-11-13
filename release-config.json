@@ -6,6 +6,7 @@
   "build": "Aetherworks/bin/Release",
   "required_dlls": [
     "Aetherworks.dll",
+    "AetherglassUI.dll",
     "Browsingway.Common.dll",
     "FlatSharp.Runtime.dll",
     "renderer/Browsingway.Common.dll",

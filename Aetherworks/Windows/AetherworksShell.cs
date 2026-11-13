@@ -1,4 +1,4 @@
-using System.Numerics;
+using AetherglassUI;
 using Dalamud.Bindings.ImGui;
 
 namespace Aetherworks.Windows;
@@ -7,391 +7,166 @@ internal sealed class AetherworksShell
 {
     internal const string ReturnId = "return-via-teleport", HotbarId = "shared-hotbar-sync", SaddlebagId = "saddlebag-withdraw-leave-one";
     internal SettingsNavigation Navigation { get; } = new();
-    private float scale = 1;
-    private AetherworksUiState state = null!;
-    private AetherworksUiActions actions = null!;
-    private bool resetScroll;
-    private bool inCard;
-    private float AvailableWidth => ImGui.GetContentRegionAvail().X-(inCard?14*scale:0);
-    private bool Compact => AvailableWidth < 440*scale;
+    private readonly WindowShell window = new();
+    private readonly SettingsPage overview = new(), features = new(), recovery = new();
+    internal int FeatureRowsShown => features.LastRowCount;
+    private string? target;
 
-    internal void Draw(AetherworksUiState view,AetherworksUiActions handlers,float uiScale)
+    internal void Draw(AetherworksUiState state, AetherworksUiActions actions, float uiScale)
     {
-        state = view; actions = handlers; scale = uiScale;
-        AetherworksChrome.BackgroundFill();
-        string summary=state.IssueCount>0?"Needs attention":state.EnabledCount==0?"All off":$"{state.EnabledCount} enabled";
-        AetherworksChrome.Header(summary,actions.Close,scale,state.IssueCount>0?UiTone.Attention:state.EnabledCount>0?UiTone.Good:UiTone.Neutral);
-        if (ImGui.BeginChild("Aetherworks rail",new Vector2(48*scale,0),false,ImGuiWindowFlags.NoScrollbar))
-            foreach(var area in Enum.GetValues<Workspace>())
-                if (AetherworksChrome.RailItem(area,Navigation.Area==area,scale)) Navigation.OpenArea(area);
-        ImGui.EndChild();
-        ImGui.SameLine(0,8*scale);
-        if (ImGui.BeginChild("Aetherworks workspace",Vector2.Zero,false))
+        window.Close = actions.Close;
+        window.Selected = Navigation.Area.ToString();
+        if (Navigation.Feature != target)
         {
-            if (state.SaveError != null)
+            target = Navigation.Feature;
+            if (target != null)
             {
-                Message("Changes are not saved",state.SaveError,UiTone.Error);
-                if (ImGui.Button("Retry saving")) actions.RetrySave();
-                Divider();
+                features.Query = Navigation.Search = "";
+                features.SetCollapsed(target, false);
+                features.ScrollToGroup(target);
             }
-            if (Navigation.Feature==null && Navigation.Area==Workspace.Features)
+        }
+        features.Query = Navigation.Search;
+        Destination Page(Workspace area, string glyph, Action draw) =>
+            new(area.ToString(), SettingsNavigation.Name(area), glyph, () =>
             {
-                ImGui.SetNextItemWidth(-1);
-                if(ImGui.InputTextWithHint("##Find feature","Find a feature...",ref Navigation.Search,128)) resetScroll=true;
-            }
-            if (ImGui.BeginChild($"Content-{Navigation.Area}-{Navigation.Feature}",Vector2.Zero,false))
+                if (Navigation.Area != area) Navigation.OpenArea(area);
+                draw();
+            }) { DrawIcon = (p, size, color) => AetherworksChrome.NavigationIcon(area, p, size, color) };
+        window.Draw("Aetherworks", "", [
+            Page(Workspace.Overview, "▦", () => overview.Draw("overview", [
+                Section("overview", "Conveniences", state.Features.Select(f =>
+                    OverviewRow(f, actions))),
+                Section("health", "Status", [Button("review", "Status & recovery", Health(state), "Review",
+                    () => Navigation.OpenArea(Workspace.Recovery))])
+            ])),
+            Page(Workspace.Features, "☰", () =>
             {
-                if(resetScroll) { ImGui.SetScrollY(0); resetScroll=false; }
-                if (Navigation.Feature is {} id)
-                {
-                    if (ImGui.Button("< Back")) Navigation.Back();
-                    ImGui.SameLine(); Secondary(Navigation.BackLabel);
-                    var feature = state.Features.FirstOrDefault(f=>f.Id==id);
-                    if (feature!=null) DrawFeature(feature);
-                }
-                else switch(Navigation.Area)
-                {
-                    case Workspace.Overview: DrawOverview(); break;
-                    case Workspace.Features: DrawFeatures(); break;
-                    default: DrawRecovery(); break;
-                }
-            }
-            ImGui.EndChild();
+                features.Draw("features", state.Features.Select(f =>
+                    Section(f.Id, f.Name, FeatureRows(f, state, actions))).ToArray());
+                Navigation.Search = features.Query;
+            }),
+            Page(Workspace.Recovery, "!", () => recovery.Draw("recovery", [
+                Section("issues", "Status & recovery", RecoveryRows(state, actions)),
+                Section("backups", "Shared hotbar backups", [Info("location", "Backup location",
+                    "Open shared-hotbars/backups in the Aetherworks configuration folder. Initial backups preserve original assignments. last-change.json records the latest before-sync state.")])
+            ]))
+        ], AetherworksChrome.Mark, () => ImGui.TextUnformatted(state.SaveError != null ? "Settings could not be saved · See recovery" : Health(state)),
+            () => state.SaveError != null ? StateTone.Error : state.IssueCount > 0 ? StateTone.Attention : StateTone.Ready);
+    }
+
+    private Setting OverviewRow(FeatureView f, AetherworksUiActions actions) =>
+        new(f.Id, f.Name, () =>
+        {
+            ImGui.BeginDisabled(f.NeedsCleanup);
+            bool next = Controls.Switch("enabled", f.Enabled);
+            ImGui.EndDisabled();
+            if (next != f.Enabled) actions.SetFeature(f.Id, next);
+            ImGui.SameLine();
+            if (ImGui.Button("Settings")) Navigation.OpenFeature(f.Id);
+        }, f.Category, f.Id == HotbarId && !f.Enabled
+            ? "First sync backs up PvP assignments, then copies shared PvE bars to PvP." : f.Status);
+
+    private static string Health(AetherworksUiState state) => state.IssueCount > 0
+        ? $"{state.IssueCount} issue(s) need attention" : $"{state.EnabledCount} of {state.Features.Count} conveniences enabled";
+
+    private static Group Section(string id, string title, IEnumerable<Setting> rows) =>
+        new(id, title, new Topic("", rows.ToArray()));
+
+    private static Setting Info(string id, string title, string detail) => new(id, title, () => {}, detail, detail);
+    private static Setting Button(string id, string title, string detail, string label, Action action) =>
+        new(id, title, () => { if (ImGui.Button(label)) action(); }, detail, detail);
+
+    private static Setting Toggle(string id, string title, string detail, bool value, Action<bool> change) =>
+        new Setting(id, title, () =>
+        {
+            bool next = Controls.Switch(id, value);
+            if (next != value) change(next);
+        }, detail, detail) { Layout = FieldLayout.Switch };
+
+    private IEnumerable<Setting> FeatureRows(FeatureView f, AetherworksUiState state, AetherworksUiActions actions)
+    {
+        string description = f.Id == HotbarId && !f.Enabled
+            ? "First sync copies shared PvE assignments to PvP after backing up existing PvP assignments." : f.Description;
+        yield return Toggle("enable", "Enable feature", description, f.Enabled, enabled => actions.SetFeature(f.Id, enabled))
+            with { DisabledReason = () => f.NeedsCleanup ? "Retry disabling to finish cleanup." : null };
+        yield return Info("status", "Current state", f.Status);
+        if (f.NeedsCleanup) yield return Cleanup(f, actions);
+        if (f.Id == ReturnId)
+        {
+            yield return Toggle("fare", "Ask before paid travel", state.SkipConfirmation
+                ? "On cooldown, Return spends the normal Teleport fare immediately." : "Review the home destination and fare before paying.",
+                !state.SkipConfirmation, confirm => actions.SetSkipConfirmation(!confirm));
+            yield return Info("travel", "Travel rules", "Free Return when ready. On cooldown, normal travel restrictions and aetheryte ticket settings apply.");
         }
-        ImGui.EndChild();
-    }
-    private void Heading(string text,string? detail=null)
-    {
-        ImGui.Spacing(); ImGui.TextWrapped(text);
-        if (detail!=null) Secondary(detail);
-        ImGui.Spacing();
-    }
-    private static void Secondary(string text)
-    {
-        ImGui.PushStyleColor(ImGuiCol.Text,AetherworksChrome.Muted);
-        ImGui.TextWrapped(text); ImGui.PopStyleColor();
-    }
-    private void Divider()
-    {
-        var p=ImGui.GetCursorScreenPos();
-        ImGui.GetWindowDrawList().AddLine(p,p+new Vector2(AvailableWidth,0),
-            ImGui.GetColorU32(new Vector4(.17f,.20f,.25f,1)),scale);
-        ImGui.Dummy(new Vector2(AvailableWidth,scale));
-    }
-    private void Section(string id,Action draw)
-    {
-        ImGui.PushID(id);
-        var p=ImGui.GetCursorScreenPos();
-        float width=ImGui.GetContentRegionAvail().X, padding=14*scale;
-        var dl=ImGui.GetWindowDrawList();
-        dl.ChannelsSplit(2);
-        dl.ChannelsSetCurrent(1);
-        ImGui.BeginGroup();
-        ImGui.Dummy(new Vector2(width,4*scale));
-        ImGui.Indent(padding);
-        ImGui.PushTextWrapPos(ImGui.GetCursorPosX()+width-2*padding);
-        inCard=true;
-        try
+        if (f.Id == HotbarId)
         {
-            draw();
+            foreach (var row in ConflictRows(state, actions)) yield return row;
+            yield return Info("bars", "Included bars", state.SharedBars.Count > 0 ? string.Join(", ", state.SharedBars) : "No shared bars currently available.");
+            yield return Info("sync", "Sync behavior", "Shared keyboard and cross hotbars sync in both directions. Sprint converts between PvE and PvP. Sync waits during combat, loading and hotbar edits.");
         }
-        finally
+        if (f.Id == SaddlebagId)
+            yield return Info("withdraw", "Withdraw all but one", "Right-click a regular or premium saddlebag stack of two or more. A stack of 99 withdraws 98. HQ and NQ remain separate.");
+        if (f.Id != "party-damage" || !f.Enabled) yield break;
+        yield return new("timing", "Entry point", () =>
         {
-            inCard=false;
-            ImGui.PopTextWrapPos();
-            ImGui.Unindent(padding);
-            ImGui.Dummy(new Vector2(width,4*scale));
-            ImGui.EndGroup();
-            float bottom=ImGui.GetItemRectMax().Y;
-            dl.ChannelsSetCurrent(0);
-            dl.AddRectFilled(p,new Vector2(p.X+width,bottom),ImGui.GetColorU32(AetherworksChrome.Surface),7*scale);
-            dl.AddRect(p,new Vector2(p.X+width,bottom),ImGui.GetColorU32(new Vector4(.17f,.20f,.25f,.65f)),7*scale,ImDrawFlags.None,scale);
-            dl.ChannelsMerge();
-            ImGui.PopID();
-        }
-        ImGui.Spacing();
-    }
-    private static void Message(string title,string detail,UiTone tone)
-    {
-        ImGui.PushStyleColor(ImGuiCol.Text,AetherworksChrome.Tone(tone));
-        ImGui.TextWrapped(title); ImGui.PopStyleColor();
-        ImGui.TextWrapped(detail);
-    }
-    private void Toggle(FeatureView feature)
-    {
-        bool enabled=feature.Enabled;
-        if (SwitchRow("Enable feature","Saved preference",ref enabled,feature.NeedsCleanup)) actions.SetFeature(feature.Id,enabled);
-        if(feature.NeedsCleanup) Secondary("Cleanup must finish before this feature can be enabled again.");
-    }
-    private bool SwitchRow(string label,string? detail,ref bool value,bool disabled=false)
-    {
-        var p=ImGui.GetCursorScreenPos();
-        float width=AvailableWidth,controlWidth=44*scale;
-        ImGui.BeginGroup();
-        ImGui.PushTextWrapPos(ImGui.GetCursorPosX()+Math.Max(40*scale,width-controlWidth-16*scale));
-        ImGui.TextWrapped(label);
-        if(detail!=null) Secondary(detail);
-        ImGui.PopTextWrapPos();
-        ImGui.EndGroup();
-        float height=Math.Max(ImGui.GetItemRectSize().Y,24*scale);
-        ImGui.SameLine(0,0);
-        ImGui.SetCursorScreenPos(p+new Vector2(width-controlWidth,(height-24*scale)/2));
-        ImGui.BeginDisabled(disabled);
-        bool changed=AetherworksChrome.Switch(label,ref value,scale);
-        ImGui.EndDisabled();
-        ImGui.SetCursorScreenPos(p+new Vector2(0,height));
-        ImGui.Dummy(Vector2.Zero);
-        return changed;
-    }
-    private void ActionRow(string title,string detail,string button,Action click,UiTone tone=UiTone.Neutral)
-    {
-        var p=ImGui.GetCursorScreenPos();
-        float width=AvailableWidth,buttonWidth=ImGui.CalcTextSize(button).X+24*scale;
-        bool stack=width<380*scale;
-        ImGui.BeginGroup();
-        ImGui.PushTextWrapPos(ImGui.GetCursorPosX()+(stack?width:width-buttonWidth-20*scale));
-        if(tone!=UiTone.Neutral) ImGui.PushStyleColor(ImGuiCol.Text,AetherworksChrome.Tone(tone));
-        ImGui.TextWrapped(title);
-        if(tone!=UiTone.Neutral) ImGui.PopStyleColor();
-        Secondary(detail);
-        ImGui.PopTextWrapPos();
-        ImGui.EndGroup();
-        float height=ImGui.GetItemRectSize().Y;
-        if(stack) { ImGui.SetCursorPosX(ImGui.GetCursorPosX()+width-buttonWidth); }
-        else
+            string mode = state.PartyDamageBeforeRequestedUpdate ? "After requested update" : "Before draw";
+            string next = Controls.Choice("##timing", mode, "Before draw", "After requested update");
+            if (mode != next) actions.SetPartyDamageEntryPoint?.Invoke(next == "After requested update");
+        }, "party list update timing");
+        yield return new Setting("color", "Prefix color", () =>
         {
-            ImGui.SameLine(0,0);
-            ImGui.SetCursorScreenPos(p+new Vector2(width-buttonWidth,Math.Max(0,(height-ImGui.GetFrameHeight())/2)));
-        }
-        if(ImGui.Button(button,new Vector2(buttonWidth,0))) click();
-        if(!stack)
-        {
-            ImGui.SetCursorScreenPos(p+new Vector2(0,Math.Max(height,ImGui.GetFrameHeight())));
-            ImGui.Dummy(Vector2.Zero);
-        }
-    }
-    private void Metrics()
-    {
-        bool compact=AvailableWidth<540*scale;
-        bool syncOn=state.Features.Any(f=>f.Id==HotbarId && f.Enabled);
-        (string Value,string Label,UiTone Tone)[] metrics=compact
-            ? [($"{state.EnabledCount} / {state.Features.Count}","Enabled",state.EnabledCount>0?UiTone.Good:UiTone.Neutral),(state.IssueCount.ToString(),"Needs review",state.IssueCount>0?UiTone.Attention:UiTone.Neutral)]
-            : [($"{state.EnabledCount} / {state.Features.Count}","Enabled",state.EnabledCount>0?UiTone.Good:UiTone.Neutral),
-                (state.SharedBars.Count>0?state.SharedBars.Count.ToString():"—",syncOn?"Shared bars observed":"Hotbar sync is off",UiTone.Neutral),
-                (state.IssueCount.ToString(),"Needs review",state.IssueCount>0?UiTone.Attention:UiTone.Neutral)];
-        float gap=8*scale,width=(AvailableWidth-gap*(metrics.Length-1))/metrics.Length;
-        var p=ImGui.GetCursorScreenPos();
-        var dl=ImGui.GetWindowDrawList();
-        for(int i=0;i<metrics.Length;i++)
-        {
-            var at=p+new Vector2(i*(width+gap),0);
-            dl.AddRectFilled(at,at+new Vector2(width,64*scale),ImGui.GetColorU32(AetherworksChrome.Surface),7*scale);
-            dl.AddRect(at,at+new Vector2(width,64*scale),ImGui.GetColorU32(new Vector4(.17f,.20f,.25f,1)),7*scale,ImDrawFlags.None,scale);
-            dl.AddText(ImGui.GetFont(),ImGui.GetFontSize()*1.3f,at+new Vector2(12,9)*scale,ImGui.GetColorU32(AetherworksChrome.Tone(metrics[i].Tone)),metrics[i].Value);
-            dl.AddText(at+new Vector2(12,39)*scale,ImGui.GetColorU32(AetherworksChrome.Muted),metrics[i].Label);
-        }
-        ImGui.Dummy(new Vector2(AvailableWidth,64*scale));
-        ImGui.Spacing();
-    }
-    private void DrawOverview()
-    {
-        Heading("Overview","Your conveniences, at a glance.");
-        Metrics();
-        if(state.IssueCount>0) Section("Attention",()=>
-        {
-            ActionRow("Needs your attention",state.Conflicts.Count>0
-                ? "Shared slots are waiting for a PvE/PvP choice." : "Review current errors and recovery options.",
-                "Review status",()=>Navigation.OpenArea(Workspace.Recovery),UiTone.Attention);
-        });
-        Heading("Quick controls");
-        Section("Quick controls",()=>
-        {
-            for(int i=0;i<state.Features.Count;i++)
-            {
-                var feature=state.Features[i];
-                ImGui.PushID(feature.Id);
-                bool enabled=feature.Enabled;
-                if(SwitchRow(feature.Name,null,ref enabled,feature.NeedsCleanup)) actions.SetFeature(feature.Id,enabled);
-                ActionRow(feature.Enabled?"Enabled":"Off",feature.Enabled||feature.Error!=null||feature.NeedsCleanup?feature.Status:ShortDescription(feature.Id),
-                    "Settings",()=>Navigation.OpenFeature(feature.Id),feature.Tone);
-                if(i<state.Features.Count-1) { ImGui.Spacing(); Divider(); ImGui.Spacing(); }
-                ImGui.PopID();
-            }
-        });
-        Secondary("Settings save automatically. Each feature is independent.");
-    }
-    private void DrawFeatures()
-    {
-        Heading("Features","Find a convenience and adjust how it works.");
-        var matches=state.Features.Where(f=>SettingsNavigation.Matches(f,Navigation.Search)).ToArray();
-        if(matches.Length==0)
-        {
-            Section("Empty search",()=>
-            {
-                ImGui.TextWrapped("No matching features");
-                Secondary("Try Return, hotbars, saddlebag or a category name.");
-                if(ImGui.Button("Clear search")) { Navigation.Search=""; resetScroll=true; }
-            });
-            return;
-        }
-        foreach(var group in matches.GroupBy(f=>f.Category))
-        {
-            Secondary(group.Key);
-            foreach(var feature in group) Section(feature.Id,()=>
-            {
-                ActionRow(feature.Name,ShortDescription(feature.Id),"Configure",()=>Navigation.OpenFeature(feature.Id));
-                Secondary(feature.Enabled?"Enabled":"Off");
-            });
-        }
-    }
-    private void DrawFeature(FeatureView feature)
-    {
-        Heading(feature.Name,feature.Category);
-        Section("Feature state",()=>
-        {
-            if(feature.Id==HotbarId && !feature.Enabled)
-            {
-                ImGui.TextWrapped("The first sync copies shared PvE assignments into PvP.");
-                Secondary("Existing PvP assignments are backed up before replacement. Only bars marked Shared are included.");
-                ImGui.Spacing();
-            }
-            Toggle(feature); ImGui.Spacing();
-            Message(feature.NeedsCleanup?"Cleanup required":feature.Enabled?"Current state":"Feature is off",feature.Status,feature.Tone);
-            FeatureError(feature);
-        });
-        if(feature.Id==ReturnId) DrawReturn();
-        else if(feature.Id==HotbarId) DrawHotbars(feature);
-        else if(feature.Id==SaddlebagId) DrawSaddlebag();
-        else if(feature.Id=="party-damage" && feature.Enabled)
-        {
-            int mode = state.PartyDamageBeforeRequestedUpdate ? 1 : 0;
-            if (ImGui.Combo("Entry point", ref mode, new[] { "Before draw", "After requested update" }, 2))
-                actions.SetPartyDamageEntryPoint?.Invoke(mode == 1);
             var color = state.PartyDamageColor;
-            if (ImGui.ColorEdit3("Prefix color", ref color, ImGuiColorEditFlags.NoInputs))
-                actions.SetPartyDamageColor?.Invoke(color);
-            Section("Ember overlay", () => actions.DrawEmberOptions?.Invoke());
-        }
-        Secondary("Changes save automatically. Feature choices are independent.");
+            Controls.Rgb(ref color);
+            if (color != state.PartyDamageColor) actions.SetPartyDamageColor?.Invoke(color);
+        }, "party list rank") { Layout = FieldLayout.Color };
+        if (state.Ember is {} ember)
+            foreach (var row in EmberRows(ember, actions)) yield return row;
     }
-    private void DrawReturn()
+
+    private static IEnumerable<Setting> EmberRows(EmberOptions options, AetherworksUiActions actions)
     {
-        Heading("Paid travel");
-        Section("Confirmation",()=>
-        {
-            bool confirm=!state.SkipConfirmation;
-            if(SwitchRow("Ask before paid travel","Show the home destination and current fare",ref confirm)) actions.SetSkipConfirmation(!confirm);
-            ImGui.Spacing();
-            if(state.SkipConfirmation) Message("Paid Teleport starts immediately",
-                "When Return is on cooldown, pressing it spends the normal fare without an Aetherworks confirmation.",UiTone.Attention);
-            else ImGui.TextWrapped("Review your home destination and the current fare before confirming paid Teleport.");
-            Secondary("This preference applies while Return via Teleport is enabled.");
-        });
-        Heading("Using Return");
-        Section("Return behavior",()=>
-        {
-            ImGui.TextWrapped("Ready"); Secondary("Free Return, as usual.");
-            Divider();
-            ImGui.TextWrapped("On cooldown"); Secondary("Paid Teleport to your current home point.");
-        });
-        if(ImGui.CollapsingHeader("Travel rules"))
-            Secondary("Normal travel restrictions and aetheryte ticket settings apply. No trip is queued for later.");
-    }
-    private void DrawHotbars(FeatureView feature)
-    {
-        if(state.Conflicts.Count>0) DrawConflicts();
-        Heading("Included bars");
-        Section("Included",()=>
-        {
-            if(state.SharedBars.Count==0) Secondary(feature.Enabled
-                ? "No shared bars are currently available. Check the current state above."
-                : "Enable the feature to read the bars marked Shared in Character Configuration.");
-            else foreach(var bar in state.SharedBars) ImGui.BulletText(bar);
-        });
-        Heading("Sync behavior");
-        Section("Behavior",()=>
-        {
-            ImGui.TextWrapped("Newly tracked bars start from PvE. Later edits and cleared slots sync in both directions.");
-            ImGui.Spacing(); Secondary("Shared keyboard and cross hotbars are included. Sprint converts to its PvE or PvP action; other assignments copy as-is.");
-            ImGui.Spacing(); Secondary("Sync waits during combat, loading and hotbar edits. Unshared bars, layouts and keybinds are unchanged.");
-        });
-        if(ImGui.Button("View status & recovery")) Navigation.OpenArea(Workspace.Recovery);
-    }
-    private void DrawSaddlebag()
-    {
-        Heading("Keep a copy for next time");
-        Section("How to use",()=>
-        {
-            ImGui.TextWrapped("1. Open your saddlebag.");
-            ImGui.TextWrapped("2. Right-click a stack of two or more.");
-            ImGui.TextWrapped("3. Choose Withdraw all but one.");
-            Divider();
-            ImGui.TextWrapped("99 in the stack: withdraw 98, leave 1");
-            Secondary("The remaining copy lets Pandora's Entrust Duplicates button match the item when you put it back.");
-        });
-        Heading("Supported items");
-        Section("Scope",()=>
-        {
-            ImGui.TextWrapped("Regular and premium saddlebags. Only the selected stack is affected; HQ and NQ stay separate.");
-            ImGui.Spacing(); Secondary("Stacks of one have no extra menu action. If a stack changes or the native action is unavailable, automatic withdrawal stops.");
-            ImGui.Spacing(); Secondary("Check inventory space if an action fails. A quantity dialog left open is for manual handling; an unexpected failure is also reported in chat.");
-        });
-    }
-    private void DrawConflicts()
-    {
-        Heading("Choose which assignments to keep");
-        Section("Conflicts",()=>
-        {
-            Message($"{state.Conflicts.Count} shared slot(s) need a choice","Both PvE and PvP changed these slots. Other shared slots continue syncing.",UiTone.Attention);
-            foreach(var conflict in state.Conflicts) ImGui.BulletText(conflict);
-            ImGui.Spacing(); bool compact=Compact;
-            float width=compact?AvailableWidth:(AvailableWidth-ImGui.GetStyle().ItemSpacing.X)/2;
-            if(ImGui.Button("Keep PvE for conflicts",new Vector2(width,0))) actions.ResolveConflicts(false);
-            if(!compact) ImGui.SameLine();
-            if(ImGui.Button("Keep PvP for conflicts",new Vector2(width,0))) actions.ResolveConflicts(true);
-            Secondary("Applies only to the listed slots. If their assignments change, review them again.");
-        });
-    }
-    private void FeatureError(FeatureView feature)
-    {
-        if(feature.Error!=null) Message("Feature needs attention",feature.Error+". See the Dalamud log for details.",UiTone.Error);
-        if(feature.NeedsCleanup && ImGui.Button("Retry disabling")) actions.SetFeature(feature.Id,false);
-    }
-    private void DrawRecovery()
-    {
-        Heading("Status & recovery","Current state and the actions available to you.");
-        if(state.IssueCount==0) Section("Healthy",()=>Message("No problems reported",
-            "Review feature activity below. An enabled feature may still be waiting for the game.",UiTone.Good));
-        if(state.Conflicts.Count>0) DrawConflicts();
-        foreach(var feature in state.Features) Section(feature.Id,()=>
-        {
-            ActionRow(feature.Name,feature.Status,"Settings",()=>Navigation.OpenFeature(feature.Id),feature.Tone);
-            FeatureError(feature);
-            if(feature.Id==HotbarId && state.SyncFaulted)
-                Secondary("Check the error and your backups, then disable and re-enable Shared Hotbar Sync to retry.");
-        });
-        Heading("Settings & backups");
-        Section("Persistence",()=>
-        {
-            Message(state.SaveError==null?"Settings saved automatically":"Settings need saving",
-                state.SaveError??"Feature changes are saved as you make them.",state.SaveError==null?UiTone.Neutral:UiTone.Error);
-            Divider(); ImGui.TextWrapped("Shared hotbar backups");
-            Secondary("Initial assignments and the latest before-sync state are saved locally for each character.");
-            if(ImGui.CollapsingHeader("Backup location"))
-                Secondary("Find shared-hotbars/backups inside Aetherworks' plugin configuration folder. Initial backups preserve the original assignments; last-change.json records the most recent before-sync state.");
-            if(ImGui.CollapsingHeader("Troubleshooting"))
+        Setting Percent(string id, string title, float value, float min, float max, Action<float> set) =>
+            new Setting(id, title, () =>
             {
-                ImGui.TextWrapped("Use the Dalamud log for errors. Retain your sync history and backups when investigating a problem; unreadable history pauses sync instead of starting over.");
-                ImGui.TextWrapped("Native game behavior still needs in-game validation after an update.");
-            }
-        });
+                float next = value;
+                Controls.Decimal(ref next, min, max);
+                if (next != value) set(next);
+            }, "Ember overlay percent", $"{min}–{max}%") { Layout = FieldLayout.Number };
+        yield return Percent("zoom", "Ember zoom", options.Zoom, 10, 500, v => { options.Zoom = v; actions.ApplyZoom?.Invoke(); });
+        yield return Percent("opacity", "Ember opacity", options.Opacity, 10, 100, v => { options.Opacity = v; actions.SaveOptions?.Invoke(); });
+        yield return Toggle("lock", "Lock Ember overlay", "Keep the meter in position.", options.Locked, v => { options.Locked = v; actions.SaveOptions?.Invoke(); });
+        yield return Toggle("combat", "Hide Ember out of combat", "Hide the meter after combat ends.", options.HideOutOfCombat, v => { options.HideOutOfCombat = v; actions.SaveOptions?.Invoke(); });
+        yield return new Setting("delay", "Ember hide delay", () =>
+        {
+            int next = options.HideDelay;
+            Controls.Integer(ref next, 0, int.MaxValue);
+            if (next != options.HideDelay) { options.HideDelay = next; actions.SaveOptions?.Invoke(); }
+        }, "combat seconds", "Seconds after leaving combat.")
+        { Layout = FieldLayout.Number, DisabledReason = () => options.HideOutOfCombat ? null : "Enable out-of-combat hiding first." };
+        yield return Toggle("pvp", "Hide Ember in PvP", "Hide the meter in PvP areas.", options.HideInPvP, v => { options.HideInPvP = v; actions.SaveOptions?.Invoke(); });
     }
-    private static string ShortDescription(string id) => id switch
+
+    private static Setting Cleanup(FeatureView f, AetherworksUiActions actions) =>
+        Button(f.Id + "-cleanup", "Incomplete cleanup", f.Error ?? f.Status, "Retry disabling", () => actions.SetFeature(f.Id, false));
+
+    private static IEnumerable<Setting> ConflictRows(AetherworksUiState state, AetherworksUiActions actions)
     {
-        ReturnId=>"A paid trip home when Return is on cooldown.",
-        HotbarId=>"Keep shared PvE and PvP assignments in step.",
-        "party-damage"=>"Show IINACT damage rank and share beside party names.",
-        SaddlebagId=>"Withdraw a stack and leave one for easy entrusting.",
-        _=>"An independently enabled convenience."
-    };
+        if (state.Conflicts.Count == 0) yield break;
+        foreach (string conflict in state.Conflicts) yield return Info(conflict, "Conflicting assignments", conflict);
+        yield return Button("pve", "Use PvE assignments", "Replace the PvP side of the listed conflicts.", "Keep PvE", () => actions.ResolveConflicts(false));
+        yield return Button("pvp", "Use PvP assignments", "Replace the PvE side of the listed conflicts.", "Keep PvP", () => actions.ResolveConflicts(true));
+    }
+
+    private IEnumerable<Setting> RecoveryRows(AetherworksUiState state, AetherworksUiActions actions)
+    {
+        if (state.SaveError != null) yield return Button("save", "Settings could not be saved", state.SaveError, "Retry save", actions.RetrySave);
+        foreach (var row in ConflictRows(state, actions)) yield return row;
+        foreach (var f in state.Features)
+        {
+            yield return Button(f.Id, f.Name, f.Error ?? f.Status, "Settings", () => Navigation.OpenFeature(f.Id));
+            if (f.NeedsCleanup) yield return Cleanup(f, actions);
+        }
+        if (state.SyncFaulted) yield return Info("paused", "Sync paused", "Check the error and backups, then disable and re-enable Shared Hotbar Sync to retry.");
+    }
 }
