@@ -42,7 +42,9 @@ internal sealed unsafe class PartyDamageWithHeader(PartyDamage rows, IAddonLifec
         enabled = false;
         lifecycle.UnregisterListener(BeforeDraw);
         lifecycle.UnregisterListener(BeforeFinalize);
-        DetachHeader((AddonPartyList*)gui.GetAddonByName(Addon).Address);
+        var addon = (AddonPartyList*)gui.GetAddonByName(Addon).Address;
+        rows.UpdateCastLabels(addon, restore: true);
+        DetachHeader(addon);
         enableEmber(false);
         rows.Disable();
     }
@@ -50,12 +52,16 @@ internal sealed unsafe class PartyDamageWithHeader(PartyDamage rows, IAddonLifec
     private void BeforeDraw(AddonEvent _, AddonArgs args)
     {
         var addon = (AddonPartyList*)args.Addon.Address;
+        rows.UpdateCastLabels(addon);
         AttachHeader(addon);
         if (headerClick != null) DrawHeaderIndicator(addon->PartyTypeTextNode);
     }
 
-    private void BeforeFinalize(AddonEvent _, AddonArgs args) =>
+    private void BeforeFinalize(AddonEvent _, AddonArgs args)
+    {
+        rows.ClearCastLabels();
         DetachHeader((AddonPartyList*)args.Addon.Address);
+    }
 
     private void DrawHeaderIndicator(AtkTextNode* title)
     {

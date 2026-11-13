@@ -11,7 +11,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace Aetherworks.Features;
 
-public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLifecycle lifecycle, IFramework framework,
+public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, IAddonLifecycle lifecycle, IFramework framework,
     IGameGui gui, IObjectTable objects, IClientState client, Configuration config, IPluginLog log) : ITweak
 {
     public const string FeatureId = "party-damage";
@@ -132,6 +132,12 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
             text.SequenceEqual(cached.Original.AsSpan(0, cached.Original.Length - 1))) return cached;
         var (start, end) = LevelRange(text);
         if (start < 0) return null;
+        return cache[row] = new(target, roster[row], label, [..text, 0],
+            PartyLevelText.PrependPercentage(text, start, end, PercentageText(label)));
+    }
+
+    private byte[] PercentageText(string label)
+    {
         var rgb = config.PartyDamageColor;
         var prefix = new Lumina.Text.SeStringBuilder()
             .PushColorRgba(new System.Numerics.Vector4(rgb, 1f));
@@ -143,8 +149,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
                 : ch);
         }
         prefix.PopColor();
-        return cache[row] = new(target, roster[row], label, [..text, 0],
-            PartyLevelText.PrependPercentage(text, start, end, prefix.ToArray()));
+        return prefix.ToArray();
     }
 
     private AddonPartyList* CurrentAddon() => (AddonPartyList*)gui.GetAddonByName(Addon).Address;

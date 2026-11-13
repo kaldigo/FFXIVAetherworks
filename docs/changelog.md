@@ -1,3 +1,5 @@
+Show the same IINACT damage percentage before the action name while a party or Trust member is casting.
+
 Restore the exact v0.2.1.14 party-row implementation, including its original cast behavior. Keep the Ember header toggle separate.
 
 Restore native party-row spacing. Show rank in the slot badge and damage share alongside the name or cast action using text only.
