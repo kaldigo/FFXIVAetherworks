@@ -11,6 +11,19 @@ void Check(bool value, string name)
     checks++;
 }
 
+var ember = new Aetherworks.Ember.EmberVisibility();
+Check(!ember.Update(false, true, false, 3, 0), "Closed before first pull");
+Check(!ember.Update(false, true, true, 3, 100), "Combat cannot open a closed overlay");
+Check(ember.Update(true, true, true, 3, 150), "Opened during combat");
+Check(ember.Update(true, true, false, 3, 200), "Open through the hide delay");
+Check(!ember.Update(true, true, false, 3, 3200), "Open but hidden after the delay");
+Check(ember.Update(true, true, true, 3, 3300), "Next pull reveals an open overlay");
+Check(!ember.Update(false, true, true, 3, 3400), "Closed during combat");
+Check(!ember.Update(false, true, false, 3, 3500), "Closed through the hide delay");
+Check(!ember.Update(false, true, true, 3, 3600), "Closed through the next pull");
+Check(!ember.Update(false, false, true, 0, 3700), "Changing hide rules cannot reopen Ember");
+Check(ember.Update(true, false, false, 0, 3800), "Open outside combat with hiding disabled");
+
 string[] party = ["Player", "Alisaie", "Resistance Fighter", "Alphinaud"];
 string?[] labels = new string?[4];
 var ranks = new int[11];

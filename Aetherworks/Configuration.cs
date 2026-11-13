@@ -14,6 +14,7 @@ public sealed class Configuration : IPluginConfiguration
 
 public sealed class EmberOptions
 {
+    public bool Open;
     public float Zoom = 100;
     public float Opacity = 100;
     public bool Locked;

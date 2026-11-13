@@ -1,6 +1,5 @@
 // Adapted from Browsingway 1.7.2, GPL-3.0. See vendor/Browsingway.
 using Browsingway.Common.Ipc;
-using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Bindings.ImGui;
 using System.Numerics;
 
@@ -23,7 +22,6 @@ internal class Overlay : IDisposable
 	private Exception? _textureRenderException;
 	private static readonly Guid OverlayId = new("9b96bebc-6e26-494e-8781-6cc953315d84");
 	private readonly string emberUrl;
-	private long _timeLastInCombat;
 
 	public Overlay(RenderProcess renderProcess, EmberOptions overlayConfig, string url)
 	{
@@ -61,13 +59,6 @@ internal class Overlay : IDisposable
 
 	public void Render()
 	{
-		if (HiddenByCombatFlags() ||
-		    (_overlayConfig.HideInPvP && Services.ClientState.IsPvP))
-		{
-			_mouseInWindow = false;
-			return;
-		}
-
 		ImGui.SetNextWindowSize(new Vector2(640, 480), ImGuiCond.FirstUseEver);
 		ImGui.Begin($"Ember###{OverlayId}", GetWindowFlags());
 
@@ -289,32 +280,6 @@ internal class Overlay : IDisposable
 		}
 
 		return ImGuiMouseCursor.Arrow;
-	}
-
-	private bool HiddenByCombatFlags()
-	{
-		if (!_overlayConfig.HideOutOfCombat)
-		{
-			return false;
-		}
-
-		if (Services.ObjectTable.LocalPlayer == null)
-		{
-			return true;
-		}
-
-		if (Services.ObjectTable.LocalPlayer.StatusFlags.HasFlag(StatusFlags.InCombat))
-		{
-			_timeLastInCombat = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-			return false;
-		}
-
-		if (!Services.ObjectTable.LocalPlayer.StatusFlags.HasFlag(StatusFlags.InCombat) && _overlayConfig.HideDelay > 0)
-		{
-			return DateTimeOffset.Now.ToUnixTimeMilliseconds() >= _timeLastInCombat + (_overlayConfig.HideDelay * 1000L);
-		}
-
-		return true;
 	}
 
 	#endregion

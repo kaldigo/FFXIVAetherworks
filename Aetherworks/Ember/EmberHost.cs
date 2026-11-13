@@ -1,25 +1,40 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
+using Dalamud.Game.ClientState.Conditions;
 using System.Numerics;
 
 namespace Aetherworks.Ember;
 
-internal sealed class EmberHost(IDalamudPluginInterface plugin, EmberOptions options) : IDisposable
+internal sealed class EmberHost(IDalamudPluginInterface plugin, EmberOptions options, ICondition condition, IClientState client, Action saveOpenState) : IDisposable
 {
     private readonly string directory = plugin.AssemblyLocation.DirectoryName!;
     private DependencyManager? dependencies;
     private RenderProcess? process;
     private EmberPage? page;
     private Overlay? overlay;
-    private bool open;
+    private bool enabled;
+    private EmberVisibility visibility = new();
     private string? error;
 
-    public void Toggle() => open = !open;
-    public void Hide() => open = false;
+    public void Toggle()
+    {
+        options.Open = !options.Open;
+        saveOpenState();
+    }
+
+    public void SetEnabled(bool value)
+    {
+        enabled = value;
+        visibility = new();
+    }
 
     public void Draw()
     {
-        if (!open) return;
+        if (!enabled) return;
+        bool open = visibility.Update(options.Open, options.HideOutOfCombat, condition[ConditionFlag.InCombat],
+            options.HideDelay, Environment.TickCount64);
+        if (!open || !client.IsLoggedIn || (options.HideInPvP && client.IsPvP)) return;
         try
         {
             if (dependencies == null && error == null)
@@ -36,6 +51,7 @@ internal sealed class EmberHost(IDalamudPluginInterface plugin, EmberOptions opt
                 ImGui.Begin("Ember overlay", ref open);
                 ImGui.TextWrapped(error);
                 ImGui.End();
+                if (!open) Toggle();
                 return;
             }
             if (overlay == null) return;

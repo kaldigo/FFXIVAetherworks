@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Aetherworks/Ember/EmberVisibility.cs" />
     <Compile Include="../Aetherworks/Features/PartyLevelText.cs" />
     <Compile Include="../Aetherworks/Features/PartyDamageRanks.cs" />
     <Compile Include="../Aetherworks/Tweaks/*.cs" Link="Tweaks/%(Filename)%(Extension)" />

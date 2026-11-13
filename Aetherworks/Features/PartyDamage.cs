@@ -13,7 +13,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 namespace Aetherworks.Features;
 
 public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLifecycle lifecycle, IAddonEventManager events, IFramework framework,
-    IGameGui gui, IObjectTable objects, IClientState client, Configuration config, IPluginLog log, Action toggleEmber, Action hideEmber) : ITweak
+    IGameGui gui, IObjectTable objects, IClientState client, Configuration config, IPluginLog log, Action toggleEmber, Action<bool> enableEmber) : ITweak
 {
     public const string FeatureId = "party-damage";
     private const string Addon = "_PartyList";
@@ -23,6 +23,9 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     private IAddonEventHandle? headerClick;
     private nint headerAddon;
     private nint headerNode;
+    private byte[] headerOriginal = [];
+    private byte[] headerApplied = [];
+    private bool headerOpen;
     private NodeFlags addedHeaderFlags;
     private readonly string?[] labels = new string?[Slots];
     private readonly bool[] castingRows = new bool[Slots];
@@ -51,6 +54,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     public void Enable()
     {
         enabled = true;
+        enableEmber(true);
         feed.Start();
         framework.Update += Update;
         client.TerritoryChanged += TerritoryChanged;
@@ -63,7 +67,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     public void Disable()
     {
         DetachHeader(CurrentAddon());
-        hideEmber();
+        enableEmber(false);
         RestoreRows(CurrentAddon());
         enabled = false;
         framework.Update -= Update;
@@ -321,7 +325,23 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
 
     private void BeforeDraw(AddonEvent _, AddonArgs args)
     {
-        ApplyRows((AddonPartyList*)args.Addon.Address, transitionsOnly: config.PartyDamageBeforeRequestedUpdate);
+        var addon = (AddonPartyList*)args.Addon.Address;
+        if ((nint)addon == headerAddon && addon != null && (nint)addon->PartyTypeTextNode == headerNode && headerNode != 0)
+            DrawHeaderIndicator(addon->PartyTypeTextNode);
+        ApplyRows(addon, transitionsOnly: config.PartyDamageBeforeRequestedUpdate);
+    }
+
+    private void DrawHeaderIndicator(AtkTextNode* title)
+    {
+        var current = title->NodeText.AsSpan();
+        if (current.IsEmpty) return;
+        bool ours = headerApplied.Length > 0 && current.SequenceEqual(headerApplied.AsSpan(0, headerApplied.Length - 1));
+        if (ours && headerOpen == config.Ember.Open) return;
+        if (!ours) headerOriginal = [..current, 0];
+        headerOpen = config.Ember.Open;
+        ReadOnlySpan<byte> icon = headerOpen ? "▼ "u8 : "▶ "u8;
+        headerApplied = [..icon, ..headerOriginal];
+        title->SetText(headerApplied.AsSpan());
     }
 
     private void AttachHeader(AddonPartyList* addon)
@@ -353,9 +373,13 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         events.RemoveEvent(headerClick);
         if (addon != null && (nint)addon == headerAddon && (nint)addon->PartyTypeTextNode == headerNode)
         {
-            addon->PartyTypeTextNode->NodeFlags &= ~addedHeaderFlags;
+            var title = addon->PartyTypeTextNode;
+            if (headerApplied.Length > 0 && title->NodeText.AsSpan().SequenceEqual(headerApplied.AsSpan(0, headerApplied.Length - 1)))
+                title->SetText(headerOriginal.AsSpan());
+            title->NodeFlags &= ~addedHeaderFlags;
             addon->UpdateCollisionNodeList(false);
         }
+        headerApplied = headerOriginal = [];
         headerClick = null;
         headerAddon = headerNode = 0;
     }

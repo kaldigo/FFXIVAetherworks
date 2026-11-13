@@ -38,8 +38,8 @@ public sealed class Plugin : IDalamudPlugin
             new SharedHotbarStore(Path.Combine(pluginInterface.GetPluginConfigDirectory(), "shared-hotbars")), log);
         var withdrawal = new SaddlebagWithdrawLeaveOne(contextMenu, framework, gui, player, data, log, chat);
         config.Ember ??= new();
-        ember = new Ember.EmberHost(pluginInterface, config.Ember);
-        var partyDamage = new PartyDamage(pluginInterface, lifecycle, events, framework, gui, objects, client, config, log, ember.Toggle, ember.Hide);
+        ember = new Ember.EmberHost(pluginInterface, config.Ember, condition, client, () => pluginInterface.SavePluginConfig(config));
+        var partyDamage = new PartyDamage(pluginInterface, lifecycle, events, framework, gui, objects, client, config, log, ember.Toggle, ember.SetEnabled);
         tweaks = new TweakManager([fallback, hotbarSync, withdrawal, partyDamage], config.EnabledTweaks,
             () => pluginInterface.SavePluginConfig(config), (ex, message) => log.Error(ex, message));
         settings = new SettingsWindow(tweaks, config, fallback, hotbarSync, partyDamage, ember.DrawOptions);
