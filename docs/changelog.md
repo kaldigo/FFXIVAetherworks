@@ -1,3 +1,5 @@
+Left-click the party-list title with Party list damage enabled to toggle a native encounter meter. Open Settings in the meter to choose damage, DPS and job columns.
+
 Draw IINACT percentage together with the rank badge during casts. Reserve space for the name and cast label.
 
 Remove the leftover level separator between the level-sync icon and the character name.

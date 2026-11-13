@@ -1,5 +1,8 @@
 using FFXIVClientStructs.FFXIV.Client.UI.Arrays;
 using Aetherworks.Tweaks;
+using Aetherworks.Windows;
+using Dalamud.Game.Addon.Events;
+using Dalamud.Game.Addon.Events.EventDataTypes;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Plugin;
@@ -9,7 +12,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace Aetherworks.Features;
 
-public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLifecycle lifecycle, IFramework framework,
+public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLifecycle lifecycle, IAddonEventManager events, IFramework framework,
     IGameGui gui, IObjectTable objects, IClientState client, Configuration config, IPluginLog log) : ITweak
 {
     public const string FeatureId = "party-damage";
@@ -17,6 +20,12 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     private const int PlayerSlots = 8;
     private const int Slots = PlayerSlots + 7;
     private readonly PartyDamageFeed feed = new(plugin, log);
+    private IAddonEventHandle? headerClick;
+    private nint headerAddon;
+    private nint headerNode;
+    private NodeFlags addedHeaderFlags;
+    private EncounterMeterWindow? meter;
+    internal EncounterMeterWindow Meter => meter ??= new(feed, config, () => plugin.SavePluginConfig(config), () => localName);
     private readonly string?[] labels = new string?[Slots];
     private readonly int[] ranks = new int[Slots];
     private readonly IndicatorEdit?[] indicators = new IndicatorEdit?[Slots];
@@ -55,6 +64,8 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
 
     public void Disable()
     {
+        DetachHeader(CurrentAddon());
+        if (meter != null) meter.IsOpen = false;
         RestoreRows(CurrentAddon());
         enabled = false;
         framework.Update -= Update;
@@ -109,6 +120,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         var numbers = PartyListNumberArray.Instance();
         var player = objects.LocalPlayer?.Name.TextValue;
         var addon = CurrentAddon();
+        AttachHeader(addon);
         var damage = feed.Damage;
         bool changed = damage != previousDamage || player != localName;
         localName = player;
@@ -304,8 +316,45 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         if (!config.PartyDamageBeforeRequestedUpdate) ApplyRows((AddonPartyList*)args.Addon.Address);
     }
 
+    private void AttachHeader(AddonPartyList* addon)
+    {
+        var title = addon == null ? null : addon->PartyTypeTextNode;
+        if (headerClick != null && headerAddon == (nint)addon && headerNode == (nint)title) return;
+        DetachHeader(addon);
+        if (title == null) return;
+        headerClick = events.AddEvent((nint)addon, (nint)title, AddonEventType.MouseClick, OnHeaderClick);
+        if (headerClick == null) return;
+        headerAddon = (nint)addon;
+        headerNode = (nint)title;
+        addedHeaderFlags = (NodeFlags.HasCollision | NodeFlags.RespondToMouse | NodeFlags.EmitsEvents) & ~title->NodeFlags;
+        title->NodeFlags |= addedHeaderFlags;
+        addon->UpdateCollisionNodeList(false);
+    }
+
+    private void OnHeaderClick(AddonEventType type, AddonEventData data)
+    {
+        if (!enabled || type != AddonEventType.MouseClick || data.AtkEventDataPointer == 0) return;
+        var mouse = ((AtkEventData*)data.AtkEventDataPointer)->MouseData;
+        if (mouse.ButtonId == 0 && !mouse.Modifier.HasFlag(ModifierFlag.Dragging))
+            Meter.IsOpen = !Meter.IsOpen;
+    }
+
+    private void DetachHeader(AddonPartyList* addon)
+    {
+        if (headerClick == null) return;
+        events.RemoveEvent(headerClick);
+        if (addon != null && (nint)addon == headerAddon && (nint)addon->PartyTypeTextNode == headerNode)
+        {
+            addon->PartyTypeTextNode->NodeFlags &= ~addedHeaderFlags;
+            addon->UpdateCollisionNodeList(false);
+        }
+        headerClick = null;
+        headerAddon = headerNode = 0;
+    }
+
     private void BeforeFinalize(AddonEvent _, AddonArgs args)
     {
+        DetachHeader((AddonPartyList*)args.Addon.Address);
         Array.Clear(nameSpace);
         Array.Clear(castSpace);
         Array.Clear(indicators);
