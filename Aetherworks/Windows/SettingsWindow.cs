@@ -46,7 +46,7 @@ public sealed class SettingsWindow : Window
                     : "Paid fallback enabled. Review the fare before travelling.",
                 SharedHotbarSync.FeatureId => hotbarSync.Status,
                 PartyDamage.FeatureId => partyDamage.Status,
-                PartyShieldBar.FeatureId => "Overflow shields appear over the party HP bars.",
+                EmberOverlay.FeatureId => config.Ember.Open ? "Meter open. Visibility rules apply." : "Meter closed. Click the party-list heading to show it.",
                 _ => "Available from the saddlebag item menu for stacks of two or more."
             };
             UiTone tone = entry.IsEnabled ? UiTone.Good : UiTone.Neutral;

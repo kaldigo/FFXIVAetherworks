@@ -28,9 +28,15 @@ public sealed class Plugin : IDalamudPlugin
         this.commands = commands;
         var config = pluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         config.EnabledTweaks ??= new(StringComparer.Ordinal);
-        // Old choices never opt a character into the new feature.
+        bool migrateFeatures = config.Version < 2;
+        if (migrateFeatures)
+        {
+            if (config.EnabledTweaks.Contains(PartyDamage.FeatureId))
+                config.EnabledTweaks.Add(EmberOverlay.FeatureId);
+            config.Version = 2;
+        }
         config.EnabledTweaks.IntersectWith([ReturnViaTeleport.FeatureId, SharedHotbarSync.FeatureId,
-            SaddlebagWithdrawLeaveOne.FeatureId, PartyDamage.FeatureId, PartyShieldBar.FeatureId]);
+            SaddlebagWithdrawLeaveOne.FeatureId, PartyDamage.FeatureId, EmberOverlay.FeatureId]);
         var fallback = new ReturnViaTeleport(client, player, objects, condition, interop, chat, log,
             () => config.SkipPaidTeleportConfirmation);
         var hotbarSync = new SharedHotbarSync(framework,
@@ -40,9 +46,10 @@ public sealed class Plugin : IDalamudPlugin
         config.Ember ??= new();
         ember = new Ember.EmberHost(pluginInterface, config.Ember, condition, client, () => pluginInterface.SavePluginConfig(config));
         var partyDamage = new PartyDamage(pluginInterface, lifecycle, framework, gui, objects, client, config, log);
-        var partyDamageWithHeader = new PartyDamageWithHeader(partyDamage, lifecycle, events, gui, config, ember.Toggle, ember.SetEnabled);
-        tweaks = new TweakManager([fallback, hotbarSync, withdrawal, partyDamageWithHeader, new PartyShieldBar(lifecycle, gui)], config.EnabledTweaks,
+        var emberOverlay = new EmberOverlay(lifecycle, events, gui, config, ember.Toggle, ember.SetEnabled);
+        tweaks = new TweakManager([fallback, hotbarSync, withdrawal, partyDamage, emberOverlay], config.EnabledTweaks,
             () => pluginInterface.SavePluginConfig(config), (ex, message) => log.Error(ex, message));
+        if (migrateFeatures) tweaks.Save();
         settings = new SettingsWindow(tweaks, config, fallback, hotbarSync, partyDamage, ember.ApplyZoom);
         var confirmation = new ReturnConfirmationWindow(fallback);
         fallback.ConfirmationRequested += confirmation.Open;

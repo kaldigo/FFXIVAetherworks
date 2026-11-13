@@ -10,7 +10,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 namespace Aetherworks.Features;
 
 // Keep Ember's title control independent of the party-member row implementation.
-internal sealed unsafe class PartyDamageWithHeader(PartyDamage rows, IAddonLifecycle lifecycle,
+internal sealed unsafe class EmberOverlay(IAddonLifecycle lifecycle,
     IAddonEventManager events, IGameGui gui, Configuration config, Action toggleEmber, Action<bool> enableEmber) : ITweak
 {
     private const string Addon = "_PartyList";
@@ -23,14 +23,14 @@ internal sealed unsafe class PartyDamageWithHeader(PartyDamage rows, IAddonLifec
     private bool headerOpen;
     private NodeFlags addedHeaderFlags;
 
-    public string Id => rows.Id;
-    public string Name => rows.Name;
-    public string Category => rows.Category;
-    public string Description => rows.Description;
+    public const string FeatureId = "ember-overlay";
+    public string Id => FeatureId;
+    public string Name => "Ember overlay";
+    public string Category => "Party list";
+    public string Description => "Click the party-list heading to show or hide the Ember damage meter.";
 
     public void Enable()
     {
-        rows.Enable();
         enabled = true;
         enableEmber(true);
         lifecycle.RegisterListener(AddonEvent.PreDraw, Addon, BeforeDraw);
@@ -45,7 +45,6 @@ internal sealed unsafe class PartyDamageWithHeader(PartyDamage rows, IAddonLifec
         var addon = (AddonPartyList*)gui.GetAddonByName(Addon).Address;
         DetachHeader(addon);
         enableEmber(false);
-        rows.Disable();
     }
 
     private void BeforeDraw(AddonEvent _, AddonArgs args)

@@ -54,7 +54,7 @@ public abstract class Screen : IPreviewScreen
             new(AetherworksShell.HotbarId,"Shared Hotbar Sync","Hotbars","Sync shared PvE and PvP keyboard and cross hotbar assignments",!allOff,false,null,
                 allOff?"This convenience is switched off.":problems?"2 conflicting slots need a choice. Other shared slots continue syncing.":"Syncing 3 shared hotbars in both directions.",allOff?UiTone.Neutral:problems?UiTone.Attention:UiTone.Good),
             new("party-damage","Party list damage","Party list","Display party damage rank and share",!allOff,false,null,"IINACT party damage"),
-            new("party-shield-bar","Party shield bar","Party list","Display overflow shields",false,false,null,"Disabled"),
+            new("ember-overlay","Ember overlay","Party list","Show or hide the damage meter from the party-list heading",!allOff,false,null,"Meter closed"),
             new(AetherworksShell.SaddlebagId,"Saddlebag Withdraw All but One","Items and storage","Leave one in the selected stack for duplicate entrusting",false,false,null,"This convenience is switched off.")
         ];
         return new(features,false,false,allOff?[]:["Hotbar 1","Hotbar 2","Cross hotbar 1"],
@@ -121,7 +121,7 @@ public sealed class EmberSearch : Screen
     public override string Name => "ember-search";
     protected override void Verify(int frame)
     {
-        if (frame == 3 && FeatureRowsShown != 6) throw new InvalidOperationException("Expected six Ember setting rows.");
+        if (frame == 3 && FeatureRowsShown != 8) throw new InvalidOperationException("Expected the Ember switch, current state and six overlay preferences.");
     }
 }
 public sealed class Waiting : Screen

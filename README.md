@@ -2,7 +2,7 @@
 
 ![Aetherworks icon](assets/icon.png)
 
-A Dalamud API 15 plugin for Final Fantasy XIV. Independent conveniences include party-list damage, overflow shields, **Return via Teleport**, **Shared Hotbar Sync**, and **Saddlebag Withdraw All but One**.
+A Dalamud API 15 plugin for Final Fantasy XIV. Independent conveniences include party-list damage with overflow shields over HP, the Ember overlay, **Return via Teleport**, **Shared Hotbar Sync**, and **Saddlebag Withdraw All but One**.
 
 ## Saddlebag Withdraw All but One
 
@@ -43,7 +43,7 @@ State and backups live in `shared-hotbars` inside Aetherworks' plugin configurat
 
 ## Settings
 
-Open `/aetherworks` for an overview of the five conveniences. Use a switch to enable a feature or choose **Settings** to jump to its rows. **Features** filters individual settings as you type. Search for **Ember** to see its six overlay preferences when party-list damage is enabled. **Status & recovery** lists save failures, pending cleanup and conflicting hotbar assignments. The footer shows issues from every workspace.
+Open `/aetherworks` for an overview of the five conveniences. Use a switch to enable a feature or choose **Settings** to jump to its rows. **Features** filters individual settings as you type. Search for **Ember** to see its six overlay preferences when the Ember feature is enabled. **Status & recovery** lists save failures, pending cleanup and conflicting hotbar assignments. The footer shows issues from every workspace.
 
 The plugin and its offline preview reference the same AetherglassUI project. CI checks out the pinned library into `.dependencies/AetherglassUI` and packages `AetherglassUI.dll`. For a local build, check out the library beside the plugin repository or set the MSBuild property `AetherglassUIProject` to its library project.
 

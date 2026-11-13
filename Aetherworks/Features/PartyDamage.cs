@@ -18,6 +18,7 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
     private const string Addon = "_PartyList";
     private const int PlayerSlots = 8;
     private const int Slots = PlayerSlots + 7;
+    private readonly PartyShieldBar shields = new(lifecycle, gui);
     private readonly PartyDamageFeed feed = new(plugin, log);
     private readonly string?[] labels = new string?[Slots];
     private readonly int[] ranks = new int[Slots];
@@ -34,7 +35,7 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
     private string? localName;
     public string Id => FeatureId;
     public string Name => "Party list damage";
-    public string Description => "Show damage rank in the party-slot icon and IINACT damage share beside the name.";
+    public string Description => "Show damage rank in the party-slot icon and IINACT damage share beside the name. Overflow shields appear over party HP bars.";
     public string Category => "Party list";
     public string Status => !feed.Connected ? "Waiting for IINACT." : labels.All(label => label == null)
         ? "Connected. Waiting for matching party damage." : "Showing damage from the latest encounter.";
@@ -49,11 +50,13 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
         lifecycle.RegisterListener(AddonEvent.PostDraw, Addon, AfterDraw);
         lifecycle.RegisterListener(AddonEvent.PreFinalize, Addon, BeforeFinalize);
         lifecycle.RegisterListener(AddonEvent.PostRequestedUpdate, Addon, AfterUpdate);
+        shields.Enable();
         nextPoll = 0;
     }
 
     public void Disable()
     {
+        shields.Disable();
         RestoreRows(CurrentAddon());
         enabled = false;
         framework.Update -= Update;

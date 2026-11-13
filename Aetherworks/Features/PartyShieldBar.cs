@@ -1,4 +1,3 @@
-using Aetherworks.Tweaks;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Plugin.Services;
@@ -7,9 +6,8 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace Aetherworks.Features;
 
-internal sealed unsafe class PartyShieldBar(IAddonLifecycle lifecycle, IGameGui gui) : ITweak
+internal sealed unsafe class PartyShieldBar(IAddonLifecycle lifecycle, IGameGui gui)
 {
-    internal const string FeatureId = "party-shield-bar";
     private const string Addon = "_PartyList";
     private struct Placement
     {
@@ -20,10 +18,6 @@ internal sealed unsafe class PartyShieldBar(IAddonLifecycle lifecycle, IGameGui 
 
     // Eight party slots, eight Trust slots and the companion/pet variants.
     private readonly Placement[,] placements = new Placement[19, 4];
-    public string Id => FeatureId;
-    public string Name => "Shield over party HP";
-    public string Category => "Party list";
-    public string Description => "Draw the overflow shield on the HP bar in party-list rows.";
 
     public void Enable()
     {

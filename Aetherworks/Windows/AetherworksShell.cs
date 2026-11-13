@@ -107,6 +107,8 @@ internal sealed class AetherworksShell
         }
         if (f.Id == SaddlebagId)
             yield return Info("withdraw", "Withdraw all but one", "Right-click a regular or premium saddlebag stack of two or more. A stack of 99 withdraws 98. HQ and NQ remain separate.");
+        if (f.Id == "ember-overlay" && f.Enabled && state.Ember is {} ember)
+            foreach (var row in EmberRows(ember, actions)) yield return row;
         if (f.Id != "party-damage" || !f.Enabled) yield break;
         yield return new("timing", "Entry point", () =>
         {
@@ -120,8 +122,6 @@ internal sealed class AetherworksShell
             Controls.Rgb(ref color);
             if (color != state.PartyDamageColor) actions.SetPartyDamageColor?.Invoke(color);
         }, "party list rank") { Layout = FieldLayout.Color };
-        if (state.Ember is {} ember)
-            foreach (var row in EmberRows(ember, actions)) yield return row;
     }
 
     private static IEnumerable<Setting> EmberRows(EmberOptions options, AetherworksUiActions actions)
