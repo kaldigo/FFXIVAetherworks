@@ -30,7 +30,8 @@ public sealed class SettingsWindow : Window
         SizeCondition = ImGuiCond.FirstUseEver;
         SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(360,320), MaximumSize = new Vector2(float.MaxValue) };
         actions = new AetherworksUiActions(SetFeature,SetSkipConfirmation,hotbarSync.ResolveConflicts,manager.Save,()=>IsOpen=false,
-            value => { partyDamage.SetEntryPoint(value); manager.Save(); });
+            value => { partyDamage.SetEntryPoint(value); manager.Save(); },
+            color => { partyDamage.SetColor(color); manager.Save(); });
     }
     public override void PreDraw() => AetherworksChrome.PushTheme(ImGuiHelpers.GlobalScale);
     public override void PostDraw() => AetherworksChrome.PopTheme();
@@ -59,7 +60,7 @@ public sealed class SettingsWindow : Window
         }).ToArray();
         return new(features,config.SkipPaidTeleportConfirmation,hotbarSync.Faulted,
             hotbarSync.SharedBars.Select(SharedHotbarSnapshot.BarName).ToArray(),
-            hotbarSync.Conflicts.Select(c=>c.Label).ToArray(),manager.SaveError, config.PartyDamageBeforeRequestedUpdate);
+            hotbarSync.Conflicts.Select(c=>c.Label).ToArray(),manager.SaveError, config.PartyDamageBeforeRequestedUpdate, config.PartyDamageColor);
     }
     private void SetFeature(string id,bool enabled) => manager.SetEnabled(manager.Entries.First(e=>e.Tweak.Id==id),enabled);
     private void SetSkipConfirmation(bool value)

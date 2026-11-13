@@ -1,3 +1,5 @@
+Style the party damage prefix in bold with a selectable color. Align percentages to at least two digits and reserve two rank positions on rosters larger than ten.
+
 Include Duty Support and Trust NPCs in party damage ranks and percentages. Match owner-tagged NPCs and world-qualified players. The alternative entry point now applies the prefix after a requested update populates the rows.
 
 Add optional Party list damage with IINACT rank and party damage share. Choose Before draw or Before requested update in the feature settings to test how level replacement behaves in game.

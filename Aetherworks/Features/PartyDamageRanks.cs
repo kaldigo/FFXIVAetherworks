@@ -23,10 +23,15 @@ internal static class PartyDamageRanks
 
         decimal sum = matched.Sum(member => (decimal)member.Damage);
         if (sum == 0) return;
+        bool padRank = roster.Count(name => !string.IsNullOrEmpty(name)) > 10;
         foreach (var member in matched)
         {
             int rank = 1 + matched.Count(other => other.Damage > member.Damage);
-            labels[member.Row] = $"{rank}:{100m * member.Damage / sum:0}% ";
+            int percent = (int)Math.Round(100m * member.Damage / sum, MidpointRounding.AwayFromZero);
+            // A figure space occupies the width of a numeral in proportional fonts.
+            string rankSpace = padRank && rank < 10 ? "\u2007" : "";
+            string percentSpace = percent < 10 ? "\u2007" : "";
+            labels[member.Row] = $"{rankSpace}{rank}:{percentSpace}{percent}% ";
         }
     }
 

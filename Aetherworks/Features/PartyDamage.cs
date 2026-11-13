@@ -67,6 +67,13 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         RequestRefresh();
     }
 
+    public void SetColor(System.Numerics.Vector3 color)
+    {
+        config.PartyDamageColor = color;
+        Array.Clear(cache);
+        if (enabled && config.PartyDamageBeforeRequestedUpdate) RequestRefresh();
+    }
+
     public void SetEntryPoint(bool beforeUpdate)
     {
         if (enabled) RestoreRows(CurrentAddon());
@@ -132,7 +139,12 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
                text[start + 2] is >= 0xA0 and <= 0xAF) start += 3; // U+E060..U+E06F
         if (start > 0)
             while (start < text.Length && text[start] == (byte)' ') start++;
-        return cache[row] = new(target, label, [..text, 0], [..Encoding.UTF8.GetBytes(label), ..text[start..], 0]);
+        var rgb = config.PartyDamageColor;
+        var prefix = new Lumina.Text.SeStringBuilder()
+            .PushColorRgba(new System.Numerics.Vector4(rgb, 1f))
+            .AppendBold(label.AsSpan().TrimEnd())
+            .PopColor();
+        return cache[row] = new(target, label, [..text, 0], [..prefix.ToArray(), (byte)' ', ..text[start..], 0]);
     }
 
     private AddonPartyList* CurrentAddon() => (AddonPartyList*)gui.GetAddonByName(Addon).Address;

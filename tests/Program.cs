@@ -24,6 +24,17 @@ damage.Remove("YOU");
 Aetherworks.Features.PartyDamageRanks.Calculate(party, 1, "Player", damage, labels);
 Check(labels[0] == "1:44% ", "World-qualified party member included");
 
+var largeParty = Enumerable.Range(1, 11).Select(i => $"Member {i}").ToArray();
+var shares = new Dictionary<string, long> { [largeParty[0]] = 93, [largeParty[1]] = 7 };
+var padded = new string?[largeParty.Length];
+Aetherworks.Features.PartyDamageRanks.Calculate(largeParty, 11, null, shares, padded);
+Check(padded[0] == "\u20071:93% " && padded[1] == "\u20072:\u20077% ", "Eleven roster members reserve two rank positions");
+Aetherworks.Features.PartyDamageRanks.Calculate(largeParty[..10], 10, null, shares, padded);
+Check(padded[1] == "2:\u20077% ", "Ten roster members keep compact rank and align single-digit share");
+shares[largeParty[1]] = 0;
+Aetherworks.Features.PartyDamageRanks.Calculate(largeParty, 11, null, shares, padded);
+Check(padded[0] == "\u20071:100% " && padded[1] == "\u20072:\u20070% ", "Zero and one hundred percent fit");
+
 var withdrawal = new LeaveOneWithdrawal(42, 4000, 5, 100, 1, 99);
 Check(withdrawal.Amount == 98 && withdrawal.Matches(42, 100, 1, 99), "Withdraw a stack minus its reserved copy");
 Check((withdrawal with { Quantity = 2 }).Amount == 1, "Two-item stack leaves one");

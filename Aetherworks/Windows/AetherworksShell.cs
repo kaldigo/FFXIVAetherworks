@@ -267,6 +267,9 @@ internal sealed class AetherworksShell
             int mode = state.PartyDamageBeforeRequestedUpdate ? 1 : 0;
             if (ImGui.Combo("Entry point", ref mode, new[] { "Before draw", "After requested update" }, 2))
                 actions.SetPartyDamageEntryPoint?.Invoke(mode == 1);
+            var color = state.PartyDamageColor;
+            if (ImGui.ColorEdit3("Prefix color", ref color, ImGuiColorEditFlags.NoInputs))
+                actions.SetPartyDamageColor?.Invoke(color);
             Secondary(feature.Status);
         }
         Secondary("Changes save automatically. Feature choices are independent.");
