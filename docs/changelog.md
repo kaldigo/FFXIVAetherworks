@@ -1,3 +1,5 @@
+Place the IINACT damage percentage between the damage-rank badge and the level-sync icon.
+
 Show encounter damage rank in the native party-slot badge and only the IINACT percentage beside the name. Preserve party order and restore slot numbers when there is no rank.
 
 Resolve party and Trust actors from each native row's entity ID, build labels from the unclipped game input, and display IINACT's damage% directly.

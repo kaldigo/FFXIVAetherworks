@@ -5,6 +5,15 @@ namespace Aetherworks.Features;
 // Called only on a SeString text payload. Icons and formatting payloads are opaque.
 internal static class PartyLevelText
 {
+    // Start the row with a self-contained percentage, followed by the original
+    // icon and name payloads in their native order. Omit only the level digits.
+    public static byte[] PrependPercentage(ReadOnlySpan<byte> row, int start, int end, ReadOnlySpan<byte> percentage)
+    {
+        bool hasLeadingSpace = start > 0 ? row[0] == (byte)' ' : end < row.Length && row[end] == (byte)' ';
+        ReadOnlySpan<byte> gap = hasLeadingSpace ? [] : " "u8;
+        return [..percentage, ..gap, ..row[..start], ..row[end..], 0];
+    }
+
     public static (int Start, int End) Locate(ReadOnlySpan<byte> text)
     {
         for (int offset = 0; offset < text.Length;)

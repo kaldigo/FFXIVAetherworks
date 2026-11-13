@@ -143,10 +143,8 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
                 : ch);
         }
         prefix.PopColor();
-        var replacement = prefix.ToArray();
-        byte[] separator = end < text.Length && text[end] == (byte)' ' ? [] : [(byte)' '];
         return cache[row] = new(target, roster[row], label, [..text, 0],
-            [..text[..start], ..replacement, ..separator, ..text[end..], 0]);
+            PartyLevelText.PrependPercentage(text, start, end, prefix.ToArray()));
     }
 
     private AddonPartyList* CurrentAddon() => (AddonPartyList*)gui.GetAddonByName(Addon).Address;

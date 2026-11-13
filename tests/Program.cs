@@ -57,6 +57,15 @@ Check(Aetherworks.Features.PartyLevelText.Locate(System.Text.Encoding.UTF8.GetBy
 Check(Aetherworks.Features.PartyLevelText.Locate(System.Text.Encoding.UTF8.GetBytes(icon)) ==
     (-1, -1), "Icon-only text before another payload is preserved");
 
+byte[] syncPayload = [2, 0x12, 2, 0x3F, 3];
+var levelBytes = System.Text.Encoding.UTF8.GetBytes(level);
+byte[] syncedRow = [..syncPayload, ..levelBytes, .." Alisaie"u8];
+Check(PartyLevelText.PrependPercentage(syncedRow, syncPayload.Length, syncPayload.Length + levelBytes.Length, "25%"u8)
+    .AsSpan().SequenceEqual((ReadOnlySpan<byte>)[.."25% "u8, ..syncPayload, .." Alisaie"u8, 0]),
+    "Percentage precedes the original sync icon and name");
+Check(PartyLevelText.PrependPercentage(syncedRow.AsSpan(syncPayload.Length), 0, levelBytes.Length, "25%"u8)
+    .AsSpan().SequenceEqual("25% Alisaie\0"u8), "Unsynced percentage has one separator");
+
 var withdrawal = new LeaveOneWithdrawal(42, 4000, 5, 100, 1, 99);
 Check(withdrawal.Amount == 98 && withdrawal.Matches(42, 100, 1, 99), "Withdraw a stack minus its reserved copy");
 Check((withdrawal with { Quantity = 2 }).Amount == 1, "Two-item stack leaves one");
