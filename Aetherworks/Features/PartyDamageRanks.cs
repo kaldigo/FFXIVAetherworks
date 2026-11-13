@@ -28,9 +28,9 @@ internal static class PartyDamageRanks
         {
             int rank = 1 + matched.Count(other => other.Damage > member.Damage);
             int percent = (int)Math.Round(100m * member.Damage / sum, MidpointRounding.AwayFromZero);
-            // A figure space occupies the width of a numeral in proportional fonts.
-            string rankSpace = padRank && rank < 10 ? "\u2007" : "";
-            string percentSpace = percent < 10 ? "\u2007" : "";
+            // Use ordinary HUD spaces for blank digit positions.
+            string rankSpace = padRank && rank < 10 ? "  " : "";
+            string percentSpace = percent < 10 ? "  " : "";
             labels[member.Row] = $"{rankSpace}{rank}:{percentSpace}{percent}% ";
         }
     }

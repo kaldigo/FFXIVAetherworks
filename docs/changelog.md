@@ -1,3 +1,5 @@
+Draw damage ranks and percentages with the game's level numeral glyphs. Use ordinary spaces for padding and keep the selected prefix color.
+
 Style the party damage prefix in bold with a selectable color. Align percentages to at least two digits and reserve two rank positions on rosters larger than ten.
 
 Include Duty Support and Trust NPCs in party damage ranks and percentages. Match owner-tagged NPCs and world-qualified players. The alternative entry point now applies the prefix after a requested update populates the rows.

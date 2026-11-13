@@ -141,9 +141,15 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
             while (start < text.Length && text[start] == (byte)' ') start++;
         var rgb = config.PartyDamageColor;
         var prefix = new Lumina.Text.SeStringBuilder()
-            .PushColorRgba(new System.Numerics.Vector4(rgb, 1f))
-            .AppendBold(label.AsSpan().TrimEnd())
-            .PopColor();
+            .PushColorRgba(new System.Numerics.Vector4(rgb, 1f));
+        foreach (char ch in label.AsSpan().TrimEnd())
+        {
+            // The level field uses the game's numeral icons, including their heavier strokes.
+            prefix.Append(char.IsAsciiDigit(ch)
+                ? (char)((int)Dalamud.Game.Text.SeIconChar.Number0 + ch - '0')
+                : ch);
+        }
+        prefix.PopColor();
         return cache[row] = new(target, label, [..text, 0], [..prefix.ToArray(), (byte)' ', ..text[start..], 0]);
     }
 
