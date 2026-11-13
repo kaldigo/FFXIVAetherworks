@@ -66,6 +66,14 @@ Check(PartyLevelText.RemoveLevel(syncedRow, syncPayload.Length, syncPayload.Leng
 Check(PartyLevelText.RemoveLevel(syncedRow.AsSpan(syncPayload.Length), 0, levelBytes.Length)
     .AsSpan().SequenceEqual("Alisaie\0"u8), "Unsynced name has no duplicate percentage");
 
+Check(PartyLevelText.RemoveLevel(syncedRow, syncPayload.Length, syncPayload.Length + levelBytes.Length, true)
+    .AsSpan().SequenceEqual("Alisaie\0"u8), "Sync icon drawn on badge is removed from the name");
+byte[] otherPayload = [2, 0x12, 2, 0x40, 3];
+byte[] decoratedRow = [..otherPayload, ..syncPayload, ..levelBytes, .." Alisaie"u8];
+int levelStart = otherPayload.Length + syncPayload.Length;
+Check(PartyLevelText.RemoveLevel(decoratedRow, levelStart, levelStart + levelBytes.Length, true)
+    .AsSpan().SequenceEqual((ReadOnlySpan<byte>)[..otherPayload, .."Alisaie"u8, 0]), "Keep other name icons");
+
 var withdrawal = new LeaveOneWithdrawal(42, 4000, 5, 100, 1, 99);
 Check(withdrawal.Amount == 98 && withdrawal.Matches(42, 100, 1, 99), "Withdraw a stack minus its reserved copy");
 Check((withdrawal with { Quantity = 2 }).Amount == 1, "Two-item stack leaves one");
