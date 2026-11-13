@@ -48,7 +48,7 @@ internal sealed class AetherworksShell
                 .. state.IssueCount > 0 ? new[] { Section("issues", "Issues needing attention", RecoveryRows(state, actions)) } : Array.Empty<Group>(),
                 Section("backups", "Shared hotbar backups", [Info("location", "Backup location",
                     "Open shared-hotbars/backups in the Aetherworks configuration folder. Initial backups preserve original assignments. last-change.json records the latest before-sync state.")])
-            ]))
+            ], searchable: false))
         ], AetherworksChrome.Mark, () => ImGui.TextUnformatted(state.SaveError != null ? "Settings could not be saved · See recovery" : Health(state)),
             () => state.SaveError != null ? StateTone.Error : state.IssueCount > 0 ? StateTone.Attention : StateTone.Ready);
     }

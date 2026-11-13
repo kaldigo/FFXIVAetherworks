@@ -1,3 +1,5 @@
+Remove the filter from the Status & recovery page.
+
 Restore Shields over HP as a default-on Party list damage option. Always update party damage before draw. Remove the Overview status section and duplicate feature list from recovery.
 
 Group overflow shield placement with Party list damage. Give Ember its own feature switch and settings, preserving its existing preferences.
