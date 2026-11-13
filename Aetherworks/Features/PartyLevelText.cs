@@ -6,9 +6,14 @@ namespace Aetherworks.Features;
 internal static class PartyLevelText
 {
     // Start the row with a self-contained percentage, followed by the original
-    // icon and name payloads in their native order. Omit only the level digits.
+    // icon and name payloads in their native order.
     public static byte[] PrependPercentage(ReadOnlySpan<byte> row, int start, int end, ReadOnlySpan<byte> percentage)
     {
+        // The native sync icon (Icon 62) directly precedes the level glyphs.
+        // Its own padding is sufficient once the level and its separator are removed.
+        ReadOnlySpan<byte> syncIcon = [0x02, 0x12, 0x02, 0x3F, 0x03];
+        if (end > start && row[..start].EndsWith(syncIcon) && end < row.Length && row[end] == (byte)' ')
+            end++;
         bool hasLeadingSpace = start > 0 ? row[0] == (byte)' ' : end < row.Length && row[end] == (byte)' ';
         ReadOnlySpan<byte> gap = hasLeadingSpace ? [] : " "u8;
         return [..percentage, ..gap, ..row[..start], ..row[end..], 0];

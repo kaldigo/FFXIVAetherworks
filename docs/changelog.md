@@ -1,3 +1,5 @@
+Remove the leftover level separator between the level-sync icon and the character name.
+
 Place the IINACT damage percentage between the damage-rank badge and the level-sync icon.
 
 Show encounter damage rank in the native party-slot badge and only the IINACT percentage beside the name. Preserve party order and restore slot numbers when there is no rank.

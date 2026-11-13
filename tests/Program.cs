@@ -61,8 +61,8 @@ byte[] syncPayload = [2, 0x12, 2, 0x3F, 3];
 var levelBytes = System.Text.Encoding.UTF8.GetBytes(level);
 byte[] syncedRow = [..syncPayload, ..levelBytes, .." Alisaie"u8];
 Check(PartyLevelText.PrependPercentage(syncedRow, syncPayload.Length, syncPayload.Length + levelBytes.Length, "25%"u8)
-    .AsSpan().SequenceEqual((ReadOnlySpan<byte>)[.."25% "u8, ..syncPayload, .." Alisaie"u8, 0]),
-    "Percentage precedes the original sync icon and name");
+    .AsSpan().SequenceEqual((ReadOnlySpan<byte>)[.."25% "u8, ..syncPayload, .."Alisaie"u8, 0]),
+    "Sync icon uses its native padding before the name");
 Check(PartyLevelText.PrependPercentage(syncedRow.AsSpan(syncPayload.Length), 0, levelBytes.Length, "25%"u8)
     .AsSpan().SequenceEqual("25% Alisaie\0"u8), "Unsynced percentage has one separator");
 
