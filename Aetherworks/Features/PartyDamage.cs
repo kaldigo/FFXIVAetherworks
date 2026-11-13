@@ -24,7 +24,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     private readonly byte[][] rosterBytes = new byte[Slots][];
     private readonly Edit?[] cache = new Edit?[Slots];
     private readonly Edit?[] edits = new Edit?[Slots];
-    private sealed record Edit(nint Target, string Label, byte[] Original, byte[] Replacement);
+    private sealed record Edit(nint Target, string Member, string Label, byte[] Original, byte[] Replacement);
     private IReadOnlyDictionary<string, long>? previousDamage;
     private bool enabled;
     private long nextPoll;
@@ -43,8 +43,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         framework.Update += Update;
         client.TerritoryChanged += TerritoryChanged;
         lifecycle.RegisterListener(AddonEvent.PreDraw, Addon, BeforeDraw);
-        lifecycle.RegisterListener(AddonEvent.PostDraw, Addon, AfterDraw);
-        lifecycle.RegisterListener(AddonEvent.PreRequestedUpdate, Addon, BeforeUpdate);
+        lifecycle.RegisterListener(AddonEvent.PreFinalize, Addon, BeforeFinalize);
         lifecycle.RegisterListener(AddonEvent.PostRequestedUpdate, Addon, AfterUpdate);
         nextPoll = 0;
     }
@@ -56,8 +55,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         framework.Update -= Update;
         client.TerritoryChanged -= TerritoryChanged;
         lifecycle.UnregisterListener(BeforeDraw);
-        lifecycle.UnregisterListener(AfterDraw);
-        lifecycle.UnregisterListener(BeforeUpdate);
+        lifecycle.UnregisterListener(BeforeFinalize);
         lifecycle.UnregisterListener(AfterUpdate);
         feed.Stop();
         Array.Clear(edits);
@@ -76,13 +74,13 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
 
     public void SetEntryPoint(bool beforeUpdate)
     {
-        if (enabled) RestoreRows(CurrentAddon());
         config.PartyDamageBeforeRequestedUpdate = beforeUpdate;
         if (enabled) RequestRefresh();
     }
 
     private void TerritoryChanged(uint territory)
     {
+        RestoreRows(CurrentAddon());
         feed.Clear();
         Array.Clear(labels);
         RequestRefresh();
@@ -132,7 +130,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     private Edit? Replace(int row, nint target, ReadOnlySpan<byte> text, string label)
     {
         if (text.IsEmpty) return null;
-        if (cache[row] is { } cached && cached.Target == target && cached.Label == label &&
+        if (cache[row] is { } cached && cached.Target == target && cached.Member == roster[row] && cached.Label == label &&
             text.SequenceEqual(cached.Original.AsSpan(0, cached.Original.Length - 1))) return cached;
         int start = 0;
         while (text.Length - start >= 3 && text[start] == 0xEE && text[start + 1] == 0x81 &&
@@ -150,7 +148,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
                 : ch);
         }
         prefix.PopColor();
-        return cache[row] = new(target, label, [..text, 0], [..prefix.ToArray(), (byte)' ', ..text[start..], 0]);
+        return cache[row] = new(target, roster[row], label, [..text, 0], [..prefix.ToArray(), (byte)' ', ..text[start..], 0]);
     }
 
     private AddonPartyList* CurrentAddon() => (AddonPartyList*)gui.GetAddonByName(Addon).Address;
@@ -184,12 +182,26 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         for (int i = 0; i < Slots; i++)
         {
             var node = NameNode(addon, i);
-            if (node == null || labels[i] is not { } label) continue;
-            if (i < PlayerSlots && (agent == null || i >= agent->PartyMemberCount ||
-                !agent->PartyMembers[i].Name.AsSpan().SequenceEqual(rosterBytes[i]))) continue;
-            var text = node->NodeText.AsSpan();
-            if (i >= PlayerSlots && !text.EndsWith(rosterBytes[i].AsSpan()) && NpcName(node, i) != roster[i]) continue;
-            if (Replace(i, (nint)node, text, label) is not { } edit) continue;
+            var applied = edits[i];
+            bool owned = node != null && applied != null && IsApplied(node, applied);
+            if (!owned) edits[i] = null;
+            var label = labels[i];
+            if (node == null) continue;
+            bool matches = label != null && (i < PlayerSlots
+                ? agent != null && i < agent->PartyMemberCount &&
+                  agent->PartyMembers[i].Name.AsSpan().SequenceEqual(rosterBytes[i])
+                : owned ? applied!.Member == roster[i] : NpcName(node, i) == roster[i]);
+            if (!matches)
+            {
+                if (owned) node->SetText(applied!.Original.AsSpan());
+                edits[i] = null;
+                continue;
+            }
+            // The label already on the node may be from an earlier rank or color.
+            // Rebuild from the game's saved bytes, never from our styled prefix.
+            if (owned && applied!.Label == label && ReferenceEquals(cache[i], applied)) continue;
+            var text = owned ? applied!.Original.AsSpan(0, applied.Original.Length - 1) : node->NodeText.AsSpan();
+            if (Replace(i, (nint)node, text, label!) is not { } edit) continue;
             edits[i] = edit;
             node->SetText(edit.Replacement.AsSpan());
         }
@@ -211,14 +223,10 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         if (!config.PartyDamageBeforeRequestedUpdate) ApplyRows((AddonPartyList*)args.Addon.Address);
     }
 
-    private void AfterDraw(AddonEvent _, AddonArgs args)
+    private void BeforeFinalize(AddonEvent _, AddonArgs args)
     {
-        if (!config.PartyDamageBeforeRequestedUpdate) RestoreRows((AddonPartyList*)args.Addon.Address);
-    }
-
-    private void BeforeUpdate(AddonEvent _, AddonArgs args)
-    {
-        if (config.PartyDamageBeforeRequestedUpdate) RestoreRows((AddonPartyList*)args.Addon.Address);
+        Array.Clear(edits);
+        Array.Clear(cache);
     }
 
     private void AfterUpdate(AddonEvent _, AddonArgs args)
