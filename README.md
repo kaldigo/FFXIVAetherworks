@@ -2,7 +2,7 @@
 
 ![Aetherworks icon](assets/icon.png)
 
-A Dalamud API 15 plugin for Final Fantasy XIV. Version 0.2.1.3 contains three independently enabled features: **Return via Teleport**, **Shared Hotbar Sync**, and **Saddlebag Withdraw All but One**.
+A Dalamud API 15 plugin for Final Fantasy XIV. Version 0.2.1.4 contains three independently enabled features: **Return via Teleport**, **Shared Hotbar Sync**, and **Saddlebag Withdraw All but One**.
 
 ## Saddlebag Withdraw All but One
 
@@ -43,7 +43,13 @@ State and backups live in `shared-hotbars` inside Aetherworks' plugin configurat
 
 ## Settings
 
-The Pandora-inspired interface has a searchable feature list grouped by category on the left, with the selected feature's description, toggle and settings on the right.
+The settings redesign follows the workspace's Plugin UI Design Guide and its Auto Keybound Brawler / Auto Sightseeing Log page references. `/aetherworks` opens **Overview**, with a compact summary and grouped quick controls. Each convenience has its current status, a right-aligned enable switch and Settings button. A header badge highlights enabled features or issues needing attention. The fixed icon rail opens **Overview**, **Features**, or **Status & recovery**; hover or focus an icon to see its name.
+
+**Features** provides category grouping and search. Opening a feature shows its scope and immediate settings. Back restores the originating workspace and search. **Status & recovery** exposes hotbar conflicts, paused sync, cleanup failures and backup guidance. Save failures stay above the scrolling content with **Retry saving**. Narrow windows keep the rail and stack conflict actions; the minimum supported size is 360 × 320 logical units. There is no global feature toggle.
+
+Feature settings use aligned label-and-switch rows with related controls grouped together. **Ask before paid travel** is on when the existing skip-confirmation preference is off. The paid Teleport confirmation shares the same appearance and keeps destination, fare, Teleport and Cancel together. Existing confirmation, lifecycle and save handlers are retained. No Glasswork runtime dependency was added: Glasswork.Preview 0.1.0-beta.3 is used only by the offline preview project.
+
+Run `./preview/render.ps1` to render the actual chrome, shell and confirmation panel with sample state. See [UI review and preview coverage](docs/ui-review.md). These offline images do not establish native font scaling, controller focus or live game behavior.
 
 The former ownership, glamour, crafting, duplicate-deposit, targeting, cast-cancel and dismount features have been removed. No background inventory tracking remains. The plugin no longer depends on KamiToolKit. Existing ownership files are left untouched and are no longer read.
 

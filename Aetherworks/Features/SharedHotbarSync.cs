@@ -16,6 +16,7 @@ public sealed class SharedHotbarSync(IFramework framework, ISharedHotbarAccess a
     public string Category => "Hotbars";
     public string Description => "Keep shared PvE and PvP hotbar assignments in sync. The first sync copies PvE into PvP; later edits flow in both directions.";
     public string Status => engine.Status;
+    public bool Faulted => engine.Faulted;
     public IReadOnlyList<int> SharedBars => engine.SharedBars;
     public IReadOnlyList<SharedSlotConflict> Conflicts => engine.Conflicts;
     public void ResolveConflicts(bool usePvP) => engine.ResolveConflicts(usePvP);
