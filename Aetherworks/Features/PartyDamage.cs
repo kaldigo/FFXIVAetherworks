@@ -339,8 +339,8 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         if (ours && headerOpen == config.Ember.Open) return;
         if (!ours) headerOriginal = [..current, 0];
         headerOpen = config.Ember.Open;
-        ReadOnlySpan<byte> icon = headerOpen ? "▼ "u8 : "▶ "u8;
-        headerApplied = [..icon, ..headerOriginal];
+        ReadOnlySpan<byte> suffix = headerOpen ? " - Hide"u8 : " - Show"u8;
+        headerApplied = [..headerOriginal.AsSpan(0, headerOriginal.Length - 1), ..suffix, 0];
         title->SetText(headerApplied.AsSpan());
     }
 

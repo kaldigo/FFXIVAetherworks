@@ -1,3 +1,5 @@
+Append - Show or - Hide to the party title to indicate what clicking it will do.
+
 The party-title arrow toggles Ember and remembers the choice. When Ember is on, combat visibility and the hide delay apply.
 
 Keep Ember in the in-game window, connect its main stats view to the IINACT WebSocket and suppress Settings popups.
