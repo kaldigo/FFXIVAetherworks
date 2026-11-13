@@ -10,4 +10,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="TerraFX.Interop.Windows" HintPath="$(DalamudLibPath)TerraFX.Interop.Windows.dll" Private="false" />
+    <Reference Include="Browsingway.Common" HintPath="../vendor/Browsingway/Browsingway.Common.dll" Private="true" />
+    <Reference Include="FlatSharp.Runtime" HintPath="../vendor/Browsingway/FlatSharp.Runtime.dll" Private="true" />
+    <Reference Include="SharedMemory" HintPath="../vendor/Browsingway/SharedMemory.dll" Private="true" />
+    <Content Include="../vendor/Browsingway/renderer/*" Link="renderer/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

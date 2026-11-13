@@ -18,7 +18,7 @@ public sealed class SettingsWindow : Window
     private readonly AetherworksShell shell = new();
     private readonly AetherworksUiActions actions;
 
-    public SettingsWindow(TweakManager manager, Configuration config, ReturnViaTeleport fallback, SharedHotbarSync hotbarSync, PartyDamage partyDamage)
+    public SettingsWindow(TweakManager manager, Configuration config, ReturnViaTeleport fallback, SharedHotbarSync hotbarSync, PartyDamage partyDamage, Action<Action> drawEmberOptions)
         : base("Aetherworks###AetherworksSettings", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
     {
         this.partyDamage = partyDamage;
@@ -31,7 +31,7 @@ public sealed class SettingsWindow : Window
         SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(360,320), MaximumSize = new Vector2(float.MaxValue) };
         actions = new AetherworksUiActions(SetFeature,SetSkipConfirmation,hotbarSync.ResolveConflicts,manager.Save,()=>IsOpen=false,
             value => { partyDamage.SetEntryPoint(value); manager.Save(); },
-            color => { partyDamage.SetColor(color); manager.Save(); });
+            color => { partyDamage.SetColor(color); manager.Save(); }, () => drawEmberOptions(() => manager.Save()));
     }
     public override void PreDraw() => AetherworksChrome.PushTheme(ImGuiHelpers.GlobalScale);
     public override void PostDraw() => AetherworksChrome.PopTheme();

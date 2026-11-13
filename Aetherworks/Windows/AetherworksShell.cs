@@ -270,7 +270,7 @@ internal sealed class AetherworksShell
             var color = state.PartyDamageColor;
             if (ImGui.ColorEdit3("Prefix color", ref color, ImGuiColorEditFlags.NoInputs))
                 actions.SetPartyDamageColor?.Invoke(color);
-            Secondary(feature.Status);
+            Section("Ember overlay", () => actions.DrawEmberOptions?.Invoke());
         }
         Secondary("Changes save automatically. Feature choices are independent.");
     }

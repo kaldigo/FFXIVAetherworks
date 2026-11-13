@@ -16,6 +16,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly WindowSystem windows = new("Aetherworks");
     private readonly SettingsWindow settings;
     private readonly TweakManager tweaks;
+    private readonly Ember.EmberHost ember;
     private bool disposed;
 
     public Plugin(IDalamudPluginInterface pluginInterface, ICommandManager commands, IPluginLog log,
@@ -36,13 +37,15 @@ public sealed class Plugin : IDalamudPlugin
             new NativeSharedHotbars(client, player, objects, condition),
             new SharedHotbarStore(Path.Combine(pluginInterface.GetPluginConfigDirectory(), "shared-hotbars")), log);
         var withdrawal = new SaddlebagWithdrawLeaveOne(contextMenu, framework, gui, player, data, log, chat);
-        var partyDamage = new PartyDamage(pluginInterface, lifecycle, events, framework, gui, objects, client, config, log);
+        config.Ember ??= new();
+        ember = new Ember.EmberHost(pluginInterface, config.Ember);
+        var partyDamage = new PartyDamage(pluginInterface, lifecycle, events, framework, gui, objects, client, config, log, ember.Toggle, ember.Hide);
         tweaks = new TweakManager([fallback, hotbarSync, withdrawal, partyDamage], config.EnabledTweaks,
             () => pluginInterface.SavePluginConfig(config), (ex, message) => log.Error(ex, message));
-        settings = new SettingsWindow(tweaks, config, fallback, hotbarSync, partyDamage);
+        settings = new SettingsWindow(tweaks, config, fallback, hotbarSync, partyDamage, ember.DrawOptions);
         var confirmation = new ReturnConfirmationWindow(fallback);
         fallback.ConfirmationRequested += confirmation.Open;
-        windows.AddWindow(partyDamage.Meter);
+        pluginInterface.UiBuilder.Draw += ember.Draw;
         windows.AddWindow(settings);
         windows.AddWindow(confirmation);
         commands.AddHandler("/aetherworks", new CommandInfo(OnCommand) { HelpMessage = "Open Aetherworks settings." });
@@ -65,5 +68,7 @@ public sealed class Plugin : IDalamudPlugin
         commands.RemoveHandler("/aetherworks");
         windows.RemoveAllWindows();
         tweaks.Dispose();
+        pluginInterface.UiBuilder.Draw -= ember.Draw;
+        ember.Dispose();
     }
 }

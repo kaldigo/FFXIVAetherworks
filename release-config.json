@@ -5,9 +5,21 @@
   "project": "Aetherworks/Aetherworks.csproj",
   "build": "Aetherworks/bin/Release",
   "required_dlls": [
-    "Aetherworks.dll"
+    "Aetherworks.dll",
+    "Browsingway.Common.dll",
+    "FlatSharp.Runtime.dll",
+    "renderer/Browsingway.Common.dll",
+    "renderer/Browsingway.Renderer.dll",
+    "renderer/Browsingway.Renderer.exe",
+    "renderer/Browsingway.Renderer.runtimeconfig.json",
+    "renderer/CefSharp.OffScreen.dll",
+    "renderer/FlatSharp.Runtime.dll",
+    "renderer/SharedMemory.dll",
+    "SharedMemory.dll"
   ],
   "licenses": {
-    "LICENSE": "LICENSE"
+    "LICENSE": "LICENSE",
+    "vendor/Browsingway/LICENSE": "Browsingway-LICENSE",
+    "vendor/Browsingway/NOTICE.md": "Browsingway-NOTICE.md"
   }
 }

@@ -13,7 +13,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 namespace Aetherworks.Features;
 
 public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLifecycle lifecycle, IAddonEventManager events, IFramework framework,
-    IGameGui gui, IObjectTable objects, IClientState client, Configuration config, IPluginLog log) : ITweak
+    IGameGui gui, IObjectTable objects, IClientState client, Configuration config, IPluginLog log, Action toggleEmber, Action hideEmber) : ITweak
 {
     public const string FeatureId = "party-damage";
     private const string Addon = "_PartyList";
@@ -24,8 +24,6 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     private nint headerAddon;
     private nint headerNode;
     private NodeFlags addedHeaderFlags;
-    private EncounterMeterWindow? meter;
-    internal EncounterMeterWindow Meter => meter ??= new(feed, config, () => plugin.SavePluginConfig(config), () => localName);
     private readonly string?[] labels = new string?[Slots];
     private readonly int[] ranks = new int[Slots];
     private readonly IndicatorEdit?[] indicators = new IndicatorEdit?[Slots];
@@ -65,7 +63,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     public void Disable()
     {
         DetachHeader(CurrentAddon());
-        if (meter != null) meter.IsOpen = false;
+        hideEmber();
         RestoreRows(CurrentAddon());
         enabled = false;
         framework.Update -= Update;
@@ -336,7 +334,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         if (!enabled || type != AddonEventType.MouseClick || data.AtkEventDataPointer == 0) return;
         var mouse = ((AtkEventData*)data.AtkEventDataPointer)->MouseData;
         if (mouse.ButtonId == 0 && !mouse.Modifier.HasFlag(ModifierFlag.Dragging))
-            Meter.IsOpen = !Meter.IsOpen;
+            toggleEmber();
     }
 
     private void DetachHeader(AddonPartyList* addon)

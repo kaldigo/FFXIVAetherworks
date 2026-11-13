@@ -25,6 +25,7 @@ class PackageTests(unittest.TestCase):
         self.manifest = dict(InternalName=self.name, AssemblyVersion='1.2.3.4', DalamudApiLevel=15)
         self.write_manifest()
         for dll in cfg['required_dlls']:
+            (self.build / dll).parent.mkdir(parents=True, exist_ok=True)
             (self.build / dll).write_bytes(b'isolated-build-fixture')
         for path in cfg['licenses']:
             target = self.root / path

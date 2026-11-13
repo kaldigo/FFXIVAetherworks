@@ -1,0 +1,1 @@
+The Ember host adapts Browsingway 1.7.2 under GPL-3.0. Renderer and IPC binaries are from the Dalamud distribution of Browsingway 1.7.2. Corresponding upstream source and dependency lockfiles: https://github.com/Styr1x/Browsingway/tree/4ed504c4524bbd2d26dd368abdb56c4bdfe74105 . Aetherworks changes are in Aetherworks/Ember.

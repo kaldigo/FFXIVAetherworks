@@ -6,12 +6,6 @@ using Newtonsoft.Json.Linq;
 
 namespace Aetherworks.Features;
 
-internal sealed record MeterRow(string Name, string Job, long Damage, string Dps, string? Share);
-internal sealed record MeterEncounter(string Title, string Duration, MeterRow[] Rows)
-{
-    public static readonly MeterEncounter Empty = new("", "", []);
-}
-
 internal sealed class PartyDamageFeed(IDalamudPluginInterface plugin, IPluginLog log)
 {
     private const string Channel = "Aetherworks.PartyDamage";
@@ -21,8 +15,6 @@ internal sealed class PartyDamageFeed(IDalamudPluginInterface plugin, IPluginLog
     private bool subscribed;
     private volatile Dictionary<string, DamageEntry> damage = new(StringComparer.OrdinalIgnoreCase);
     public IReadOnlyDictionary<string, DamageEntry> Damage => damage;
-    private volatile MeterEncounter encounter = MeterEncounter.Empty;
-    public MeterEncounter Encounter => encounter;
     public bool Connected => subscribed;
 
     public void Start()
@@ -54,29 +46,17 @@ internal sealed class PartyDamageFeed(IDalamudPluginInterface plugin, IPluginLog
     {
         if ((string?)payload["type"] != "CombatData" || payload["Combatant"] is not JObject entries) return true;
         var snapshot = new Dictionary<string, DamageEntry>(StringComparer.OrdinalIgnoreCase);
-        var rows = new List<MeterRow>();
         foreach (var entry in entries.Properties())
         {
             if (entry.Value is JObject combatant && long.TryParse((string?)combatant["damage"],
                 NumberStyles.Integer | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var total) && total >= 0)
-            {
-                var share = (string?)combatant["damage%"];
-                snapshot[entry.Name] = new DamageEntry(total, share);
-                rows.Add(new(entry.Name, (string?)combatant["Job"] ?? "", total, (string?)combatant["encdps"] ?? "—", share));
-            }
+                snapshot[entry.Name] = new DamageEntry(total, (string?)combatant["damage%"]);
         }
-        var details = payload["Encounter"] as JObject;
-        encounter = new((string?)details?["title"] ?? "", (string?)details?["duration"] ?? "",
-            rows.OrderByDescending(row => row.Damage).ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase).ToArray());
         damage = snapshot;
         return true;
     }
 
-    public void Clear()
-    {
-        damage = new(StringComparer.OrdinalIgnoreCase);
-        encounter = MeterEncounter.Empty;
-    }
+    public void Clear() => damage = new(StringComparer.OrdinalIgnoreCase);
 
     public void Stop()
     {

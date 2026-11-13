@@ -13,7 +13,7 @@ internal sealed record AetherworksUiState(IReadOnlyList<FeatureView> Features, b
         (SyncFaulted ? 1 : 0) + (Conflicts.Count > 0 ? 1 : 0) + (SaveError != null ? 1 : 0);
 }
 internal sealed record AetherworksUiActions(Action<string, bool> SetFeature, Action<bool> SetSkipConfirmation,
-    Action<bool> ResolveConflicts, Action RetrySave, Action Close, Action<bool>? SetPartyDamageEntryPoint = null, Action<System.Numerics.Vector3>? SetPartyDamageColor = null);
+    Action<bool> ResolveConflicts, Action RetrySave, Action Close, Action<bool>? SetPartyDamageEntryPoint = null, Action<System.Numerics.Vector3>? SetPartyDamageColor = null, Action? DrawEmberOptions = null);
 
 internal sealed class SettingsNavigation
 {
