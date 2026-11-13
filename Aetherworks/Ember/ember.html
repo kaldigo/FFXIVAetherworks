@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Ember</title>
+<style>
+  html, body, iframe { width: 100%; height: 100%; margin: 0; border: 0; }
+  body { color: white; font: 14px sans-serif; overflow: hidden; }
+</style>
+<body>
+<script>
+(async () => {
+  const proxy = new URL("https://proxy.iinact.com/overlay/ember_overlay/");
+  if (window === window.top) {
+    const view = document.createElement("iframe");
+    view.title = "Ember encounter";
+    view.setAttribute("sandbox", "allow-scripts allow-same-origin");
+    view.src = "?HOST_PORT=ws://127.0.0.1:10501/ws&mode=stats";
+    document.body.append(view);
+    return;
+  }
+
+  // Keep the document local to IINACT. Resolve Ember's scripts, styles and
+  // dynamically loaded assets against the official overlay distribution.
+  const response = await fetch(proxy, { credentials: "omit" });
+  if (!response.ok) throw new Error("Ember returned HTTP " + response.status);
+  const html = await response.text();
+  const page = new DOMParser().parseFromString(html, "text/html");
+  if (!page.querySelector("#root")) throw new Error("Ember returned an invalid page");
+  for (const asset of page.querySelectorAll("script[src],link[href]")) {
+    const attr = asset.hasAttribute("src") ? "src" : "href";
+    asset.setAttribute(attr, new URL(asset.getAttribute(attr), proxy).href);
+  }
+  document.open();
+  document.write("<!doctype html>" + page.documentElement.outerHTML);
+  document.close();
+})().catch(error => {
+  document.body.textContent = "Could not load Ember: " + error.message;
+});
+</script>

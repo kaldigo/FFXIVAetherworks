@@ -9,6 +9,7 @@ internal sealed class EmberHost(IDalamudPluginInterface plugin, EmberOptions opt
     private readonly string directory = plugin.AssemblyLocation.DirectoryName!;
     private DependencyManager? dependencies;
     private RenderProcess? process;
+    private EmberPage? page;
     private Overlay? overlay;
     private bool open;
     private string? error;
@@ -51,6 +52,7 @@ internal sealed class EmberHost(IDalamudPluginInterface plugin, EmberOptions opt
 
     private void Start(object? sender, EventArgs args)
     {
+        page = new(directory);
         DxHandler.Initialise(plugin);
         var renderer = new RenderProcess(Environment.ProcessId, directory, plugin.GetPluginConfigDirectory(), dependencies!, Services.PluginLog);
         process = renderer;
@@ -58,7 +60,7 @@ internal sealed class EmberHost(IDalamudPluginInterface plugin, EmberOptions opt
         {
             if (process != renderer) return;
             if (message.HasDxSharedTexturesSupport)
-                overlay ??= new(renderer, options);
+                overlay ??= new(renderer, options, page.Url);
             else
                 error = "Ember could not initialize DirectX shared textures.";
         });
@@ -103,6 +105,7 @@ internal sealed class EmberHost(IDalamudPluginInterface plugin, EmberOptions opt
         overlay?.Dispose();
         overlay = null;
         renderer?.Dispose();
+        page?.Dispose();
         dependencies?.Dispose();
         DxHandler.Shutdown();
     }

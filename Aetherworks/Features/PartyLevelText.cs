@@ -5,22 +5,18 @@ namespace Aetherworks.Features;
 // Called only on a SeString text payload. Icons and formatting payloads are opaque.
 internal static class PartyLevelText
 {
-    internal static ReadOnlySpan<byte> SyncIcon => [0x02, 0x12, 0x02, 0x3F, 0x03];
-
-    internal static bool HasSyncBeforeLevel(ReadOnlySpan<byte> row, int start) =>
-        start >= 0 && row[..start].EndsWith(SyncIcon);
-
-    // The percentage renders with the rank. Preserve the native icon and name.
-    public static byte[] RemoveLevel(ReadOnlySpan<byte> row, int start, int end, bool syncOnBadge = false)
+    // Start the row with a self-contained percentage, followed by the original
+    // icon and name payloads in their native order.
+    public static byte[] PrependPercentage(ReadOnlySpan<byte> row, int start, int end, ReadOnlySpan<byte> percentage)
     {
         // The native sync icon (Icon 62) directly precedes the level glyphs.
         // Its own padding is sufficient once the level and its separator are removed.
-        bool synced = HasSyncBeforeLevel(row, start);
-        if (end > start && synced && end < row.Length && row[end] == (byte)' ')
+        ReadOnlySpan<byte> syncIcon = [0x02, 0x12, 0x02, 0x3F, 0x03];
+        if (end > start && row[..start].EndsWith(syncIcon) && end < row.Length && row[end] == (byte)' ')
             end++;
-        if (start == 0 && end > start && end < row.Length && row[end] == (byte)' ') end++;
-        int cut = synced && syncOnBadge ? start - SyncIcon.Length : start;
-        return [..row[..cut], ..row[end..], 0];
+        bool hasLeadingSpace = start > 0 ? row[0] == (byte)' ' : end < row.Length && row[end] == (byte)' ';
+        ReadOnlySpan<byte> gap = hasLeadingSpace ? [] : " "u8;
+        return [..percentage, ..gap, ..row[..start], ..row[end..], 0];
     }
 
     public static (int Start, int End) Locate(ReadOnlySpan<byte> text)

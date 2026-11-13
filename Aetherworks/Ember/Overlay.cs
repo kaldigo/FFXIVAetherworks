@@ -22,10 +22,10 @@ internal class Overlay : IDisposable
 	private SharedTextureHandler? _textureHandler;
 	private Exception? _textureRenderException;
 	private static readonly Guid OverlayId = new("9b96bebc-6e26-494e-8781-6cc953315d84");
-	private const string EmberUrl = "http://proxy.iinact.com/overlay/ember_overlay/?HOST_PORT=ws://127.0.0.1:10501";
+	private readonly string emberUrl;
 	private long _timeLastInCombat;
 
-	public Overlay(RenderProcess renderProcess, EmberOptions overlayConfig)
+	public Overlay(RenderProcess renderProcess, EmberOptions overlayConfig, string url)
 	{
 		_renderProcess = renderProcess;
 		// TODO: handle that the correct way
@@ -37,6 +37,7 @@ internal class Overlay : IDisposable
 		};
 
 		_overlayConfig = overlayConfig;
+		emberUrl = url;
 	}
 
 	public Guid RenderGuid => OverlayId;
@@ -217,7 +218,7 @@ internal class Overlay : IDisposable
 			{
 				Guid = RenderGuid.ToByteArray(),
 				Id = "Ember",
-				Url = EmberUrl,
+				Url = emberUrl,
 				Width = (int)currentSize.X,
 				Height = (int)currentSize.Y,
 				Zoom = _overlayConfig.Zoom,

@@ -1,3 +1,7 @@
+Keep Ember in the in-game window, connect its main stats view to the IINACT WebSocket and suppress Settings popups.
+
+Keep the sync icon with the name and draw the percentage beside the rank while the cast label replaces the name.
+
 Draw the native level-sync icon directly after the damage percentage in the same party badge.
 
 Click the party-list title to toggle the Ember overlay. Adjust zoom, opacity, locking, combat and PvP visibility, and the post-combat hide delay in Party list damage settings.

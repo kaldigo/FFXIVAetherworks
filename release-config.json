@@ -15,7 +15,8 @@
     "renderer/CefSharp.OffScreen.dll",
     "renderer/FlatSharp.Runtime.dll",
     "renderer/SharedMemory.dll",
-    "SharedMemory.dll"
+    "SharedMemory.dll",
+    "ember.html"
   ],
   "licenses": {
     "LICENSE": "LICENSE",
