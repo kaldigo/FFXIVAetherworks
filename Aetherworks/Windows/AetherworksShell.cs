@@ -36,9 +36,7 @@ internal sealed class AetherworksShell
         window.Draw("Aetherworks", "", [
             Page(Workspace.Overview, "▦", () => overview.Draw("overview", [
                 Section("overview", "Conveniences", state.Features.Select(f =>
-                    OverviewRow(f, actions))),
-                Section("health", "Status", [Button("review", "Status & recovery", Health(state), "Review",
-                    () => Navigation.OpenArea(Workspace.Recovery))])
+                    OverviewRow(f, actions)))
             ])),
             Page(Workspace.Features, "☰", () =>
             {
@@ -47,7 +45,7 @@ internal sealed class AetherworksShell
                 Navigation.Search = features.Query;
             }),
             Page(Workspace.Recovery, "!", () => recovery.Draw("recovery", [
-                Section("issues", "Status & recovery", RecoveryRows(state, actions)),
+                .. state.IssueCount > 0 ? new[] { Section("issues", "Issues needing attention", RecoveryRows(state, actions)) } : Array.Empty<Group>(),
                 Section("backups", "Shared hotbar backups", [Info("location", "Backup location",
                     "Open shared-hotbars/backups in the Aetherworks configuration folder. Initial backups preserve original assignments. last-change.json records the latest before-sync state.")])
             ]))
@@ -110,12 +108,8 @@ internal sealed class AetherworksShell
         if (f.Id == "ember-overlay" && f.Enabled && state.Ember is {} ember)
             foreach (var row in EmberRows(ember, actions)) yield return row;
         if (f.Id != "party-damage" || !f.Enabled) yield break;
-        yield return new("timing", "Entry point", () =>
-        {
-            string mode = state.PartyDamageBeforeRequestedUpdate ? "After requested update" : "Before draw";
-            string next = Controls.Choice("##timing", mode, "Before draw", "After requested update");
-            if (mode != next) actions.SetPartyDamageEntryPoint?.Invoke(next == "After requested update");
-        }, "party list update timing");
+        yield return Toggle("shields", "Shields over HP", "Draw overflow shields over the party HP bars.",
+            state.ShieldsOverHp, value => actions.SetShieldsOverHp?.Invoke(value));
         yield return new Setting("color", "Prefix color", () =>
         {
             var color = state.PartyDamageColor;
@@ -164,8 +158,9 @@ internal sealed class AetherworksShell
         foreach (var row in ConflictRows(state, actions)) yield return row;
         foreach (var f in state.Features)
         {
-            yield return Button(f.Id, f.Name, f.Error ?? f.Status, "Settings", () => Navigation.OpenFeature(f.Id));
             if (f.NeedsCleanup) yield return Cleanup(f, actions);
+            else if (f.Error != null)
+                yield return Button(f.Id, f.Name, f.Error, "Settings", () => Navigation.OpenFeature(f.Id));
         }
         if (state.SyncFaulted) yield return Info("paused", "Sync paused", "Check the error and backups, then disable and re-enable Shared Hotbar Sync to retry.");
     }

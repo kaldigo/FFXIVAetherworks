@@ -35,7 +35,7 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
     private string? localName;
     public string Id => FeatureId;
     public string Name => "Party list damage";
-    public string Description => "Show damage rank in the party-slot icon and IINACT damage share beside the name. Overflow shields appear over party HP bars.";
+    public string Description => "Show damage rank in the party-slot icon and IINACT damage share beside the name.";
     public string Category => "Party list";
     public string Status => !feed.Connected ? "Waiting for IINACT." : labels.All(label => label == null)
         ? "Connected. Waiting for matching party damage." : "Showing damage from the latest encounter.";
@@ -49,14 +49,13 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
         lifecycle.RegisterListener(AddonEvent.PreDraw, Addon, BeforeDraw);
         lifecycle.RegisterListener(AddonEvent.PostDraw, Addon, AfterDraw);
         lifecycle.RegisterListener(AddonEvent.PreFinalize, Addon, BeforeFinalize);
-        lifecycle.RegisterListener(AddonEvent.PostRequestedUpdate, Addon, AfterUpdate);
-        shields.Enable();
+        if (config.ShieldsOverHp) shields.Enable();
         nextPoll = 0;
     }
 
     public void Disable()
     {
-        shields.Disable();
+        if (config.ShieldsOverHp) shields.Disable();
         RestoreRows(CurrentAddon());
         enabled = false;
         framework.Update -= Update;
@@ -64,7 +63,6 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
         lifecycle.UnregisterListener(BeforeDraw);
         lifecycle.UnregisterListener(AfterDraw);
         lifecycle.UnregisterListener(BeforeFinalize);
-        lifecycle.UnregisterListener(AfterUpdate);
         feed.Stop();
         Array.Clear(indicators);
         Array.Clear(edits);
@@ -78,13 +76,15 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
     {
         config.PartyDamageColor = color;
         Array.Clear(cache);
-        if (enabled && config.PartyDamageBeforeRequestedUpdate) RequestRefresh();
     }
 
-    public void SetEntryPoint(bool beforeUpdate)
+    public void SetShieldsOverHp(bool value)
     {
-        config.PartyDamageBeforeRequestedUpdate = beforeUpdate;
-        if (enabled) RequestRefresh();
+        if (config.ShieldsOverHp == value) return;
+        config.ShieldsOverHp = value;
+        if (!enabled) return;
+        if (value) shields.Enable();
+        else shields.Disable();
     }
 
     private void TerritoryChanged(uint territory)
@@ -126,7 +126,6 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
         }
         if (!changed) return;
         PartyDamageRanks.Calculate(roster, PlayerSlots, player, damage, labels, ranks);
-        if (config.PartyDamageBeforeRequestedUpdate) RequestRefresh();
     }
 
     // Keep any SeString payloads in the displayed name byte-for-byte intact.
@@ -266,7 +265,7 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
     private void BeforeDraw(AddonEvent _, AddonArgs args)
     {
         var addon = (AddonPartyList*)args.Addon.Address;
-        if (!config.PartyDamageBeforeRequestedUpdate) ApplyRows(addon);
+        ApplyRows(addon);
         DrawCastShares(addon);
     }
 
@@ -279,10 +278,5 @@ public sealed unsafe partial class PartyDamage(IDalamudPluginInterface plugin, I
         Array.Clear(indicators);
         Array.Clear(edits);
         Array.Clear(cache);
-    }
-
-    private void AfterUpdate(AddonEvent _, AddonArgs args)
-    {
-        if (config.PartyDamageBeforeRequestedUpdate) ApplyRows((AddonPartyList*)args.Addon.Address);
     }
 }

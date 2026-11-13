@@ -30,7 +30,7 @@ public sealed class SettingsWindow : Window
         SizeCondition = ImGuiCond.FirstUseEver;
         SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(360,320), MaximumSize = new Vector2(float.MaxValue) };
         actions = new AetherworksUiActions(SetFeature,SetSkipConfirmation,hotbarSync.ResolveConflicts,manager.Save,()=>IsOpen=false,
-            value => { partyDamage.SetEntryPoint(value); manager.Save(); },
+            value => { partyDamage.SetShieldsOverHp(value); manager.Save(); },
             color => { partyDamage.SetColor(color); manager.Save(); }, () => { applyZoom(config.Ember.Zoom); manager.Save(); }, manager.Save);
     }
     public override void Draw() => shell.Draw(Snapshot(),actions,ImGuiHelpers.GlobalScale);
@@ -59,7 +59,7 @@ public sealed class SettingsWindow : Window
         }).ToArray();
         return new(features,config.SkipPaidTeleportConfirmation,hotbarSync.Faulted,
             hotbarSync.SharedBars.Select(SharedHotbarSnapshot.BarName).ToArray(),
-            hotbarSync.Conflicts.Select(c => $"{c.Label} · PvE {c.PvE} · PvP {c.PvP}").ToArray(),manager.SaveError, config.PartyDamageBeforeRequestedUpdate, config.PartyDamageColor, config.Ember);
+            hotbarSync.Conflicts.Select(c => $"{c.Label} · PvE {c.PvE} · PvP {c.PvP}").ToArray(),manager.SaveError, config.ShieldsOverHp, config.PartyDamageColor, config.Ember);
     }
     private void SetFeature(string id,bool enabled) => manager.SetEnabled(manager.Entries.First(e=>e.Tweak.Id==id),enabled);
     private void SetSkipConfirmation(bool value)
