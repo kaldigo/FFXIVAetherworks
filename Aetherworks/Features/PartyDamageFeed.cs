@@ -13,8 +13,8 @@ internal sealed class PartyDamageFeed(IDalamudPluginInterface plugin, IPluginLog
     private ICallGateSubscriber<JObject, bool>? sender;
     private long nextCheck;
     private bool subscribed;
-    private volatile Dictionary<string, long> damage = new(StringComparer.OrdinalIgnoreCase);
-    public IReadOnlyDictionary<string, long> Damage => damage;
+    private volatile Dictionary<string, DamageEntry> damage = new(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, DamageEntry> Damage => damage;
     public bool Connected => subscribed;
 
     public void Start()
@@ -45,12 +45,12 @@ internal sealed class PartyDamageFeed(IDalamudPluginInterface plugin, IPluginLog
     private bool Receive(JObject payload)
     {
         if ((string?)payload["type"] != "CombatData" || payload["Combatant"] is not JObject entries) return true;
-        var snapshot = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        var snapshot = new Dictionary<string, DamageEntry>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in entries.Properties())
         {
             if (entry.Value is JObject combatant && long.TryParse((string?)combatant["damage"],
                 NumberStyles.Integer | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var total) && total >= 0)
-                snapshot[entry.Name] = total;
+                snapshot[entry.Name] = new DamageEntry(total, (string?)combatant["damage%"]);
         }
         damage = snapshot;
         return true;

@@ -1,3 +1,5 @@
+Resolve party and Trust actors from each native row's entity ID, build labels from the unclipped game input, and display IINACT's damage% directly.
+
 Preserve party-list sync icons when replacing the level. Match decorated NPC rows by name and show dashes on occupied rows awaiting an IINACT match during an encounter.
 
 Keep party damage prefixes in place between draws. Reapply after the game rewrites a row and update changed ranks or colors directly from the original name.

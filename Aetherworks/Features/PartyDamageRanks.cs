@@ -1,17 +1,19 @@
 namespace Aetherworks.Features;
 
+internal readonly record struct DamageEntry(long Total, string? Percent);
+
 internal static class PartyDamageRanks
 {
     public static void Calculate(string[] roster, int firstNpc, string? player,
-        IReadOnlyDictionary<string, long> damage, string?[] labels)
+        IReadOnlyDictionary<string, DamageEntry> damage, string?[] labels)
     {
         Array.Clear(labels);
-        var matched = new List<(int Row, long Damage)>();
+        var matched = new List<(int Row, DamageEntry Damage)>();
         for (int row = 0; row < roster.Length; row++)
         {
             string name = roster[row];
             if (string.IsNullOrEmpty(name) || roster.Count(n => Same(n, name)) != 1) continue;
-            if (!damage.TryGetValue(name, out long total) &&
+            if (!damage.TryGetValue(name, out var total) &&
                 !(Same(name, player) && damage.TryGetValue("YOU", out total)))
             {
                 var aliases = damage.Where(entry => Same(RowName(entry.Key, row >= firstNpc), name)).Take(2).ToArray();
@@ -21,8 +23,7 @@ internal static class PartyDamageRanks
             matched.Add((row, total));
         }
 
-        decimal sum = matched.Sum(member => (decimal)member.Damage);
-        if (sum == 0) return;
+        if (damage.Count == 0) return;
         bool padRank = roster.Count(name => !string.IsNullOrEmpty(name)) > 10;
         // During an encounter every occupied row gets a label. Missing or ambiguous
         // parser entries have no known rank or share yet.
@@ -30,12 +31,12 @@ internal static class PartyDamageRanks
             if (!string.IsNullOrWhiteSpace(roster[row])) labels[row] = padRank ? "  -:  -% " : "-:  -% ";
         foreach (var member in matched)
         {
-            int rank = 1 + matched.Count(other => other.Damage > member.Damage);
-            int percent = (int)Math.Round(100m * member.Damage / sum, MidpointRounding.AwayFromZero);
+            int rank = 1 + matched.Count(other => other.Damage.Total > member.Damage.Total);
+            string percent = member.Damage.Percent ?? "-%";
             // Use ordinary HUD spaces for blank digit positions.
             string rankSpace = padRank && rank < 10 ? "  " : "";
-            string percentSpace = percent < 10 ? "  " : "";
-            labels[member.Row] = $"{rankSpace}{rank}:{percentSpace}{percent}% ";
+            string percentSpace = percent.Length == 2 ? "  " : "";
+            labels[member.Row] = $"{rankSpace}{rank}:{percentSpace}{percent} ";
         }
     }
 

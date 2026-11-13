@@ -1,3 +1,4 @@
+using Aetherworks.Features;
 using Aetherworks.Tweaks;
 using Aetherworks.Transfers;
 
@@ -12,26 +13,33 @@ void Check(bool value, string name)
 
 string[] party = ["Player", "Alisaie", "Resistance Fighter", "Alphinaud"];
 string?[] labels = new string?[4];
-var damage = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase)
+var damage = new Dictionary<string, DamageEntry>(StringComparer.OrdinalIgnoreCase)
 {
-    ["YOU"] = 67151, ["Alisaie (YOU)"] = 37996, ["Resistance Fighter (YOU)"] = 25724,
-    ["Alphinaud (YOU)"] = 20630, ["Enemy"] = 999999
+    ["YOU"] = new(67151, "44%"), ["Alisaie (YOU)"] = new(37996, "25%"), ["Resistance Fighter (YOU)"] = new(25724, "16%"),
+    ["Alphinaud (YOU)"] = new(20630, "13%"), ["Enemy"] = new(999999, "99%")
 };
 Aetherworks.Features.PartyDamageRanks.Calculate(party, 1, "Player", damage, labels);
-Check(labels.SequenceEqual(["1:44% ", "2:25% ", "3:17% ", "4:14% "]), "Duty support ranks and rounded party shares");
+Check(labels.SequenceEqual(["1:44% ", "2:25% ", "3:16% ", "4:13% "]), "Duty support ranks and parser-provided shares");
 damage["Player@World"] = damage["YOU"];
 damage.Remove("YOU");
 Aetherworks.Features.PartyDamageRanks.Calculate(party, 1, "Player", damage, labels);
 Check(labels[0] == "1:44% ", "World-qualified party member included");
 
+PartyDamageRanks.Calculate(["Player"], 1, "Player", damage, labels);
+Check(labels[0] == "1:44% ", "One matching row preserves the parser percentage");
+damage["Player@World"] = new(67151, null);
+PartyDamageRanks.Calculate(["Player"], 1, "Player", damage, labels);
+Check(labels[0] == "1:  -% ", "Missing parser percentage remains unknown");
+
 var largeParty = Enumerable.Range(1, 11).Select(i => $"Member {i}").ToArray();
-var shares = new Dictionary<string, long> { [largeParty[0]] = 93, [largeParty[1]] = 7 };
+var shares = new Dictionary<string, DamageEntry> { [largeParty[0]] = new(93, "93%"), [largeParty[1]] = new(7, "7%") };
 var padded = new string?[largeParty.Length];
 Aetherworks.Features.PartyDamageRanks.Calculate(largeParty, 11, null, shares, padded);
 Check(padded[0] == "  1:93% " && padded[1] == "  2:  7% ", "Eleven roster members reserve two rank positions");
 Aetherworks.Features.PartyDamageRanks.Calculate(largeParty[..10], 10, null, shares, padded);
 Check(padded[1] == "2:  7% ", "Ten roster members keep compact rank and align single-digit share");
-shares[largeParty[1]] = 0;
+shares[largeParty[1]] = new(0, "0%");
+shares[largeParty[0]] = new(93, "100%");
 Aetherworks.Features.PartyDamageRanks.Calculate(largeParty, 11, null, shares, padded);
 Check(padded[0] == "  1:100% " && padded[1] == "  2:  0% ", "Zero and one hundred percent fit");
 

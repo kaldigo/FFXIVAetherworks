@@ -1,12 +1,12 @@
-using System.Text;
+using FFXIVClientStructs.FFXIV.Client.UI.Arrays;
 using Aetherworks.Tweaks;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
-using Dalamud.Game.Text.SeStringHandling;
+
+
 using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace Aetherworks.Features;
@@ -21,11 +21,11 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     private readonly PartyDamageFeed feed = new(plugin, log);
     private readonly string?[] labels = new string?[Slots];
     private readonly string[] roster = new string[Slots];
-    private readonly byte[][] rosterBytes = new byte[Slots][];
+    private readonly uint[] entityIds = new uint[Slots];
     private readonly Edit?[] cache = new Edit?[Slots];
     private readonly Edit?[] edits = new Edit?[Slots];
     private sealed record Edit(nint Target, string Member, string Label, byte[] Original, byte[] Replacement);
-    private IReadOnlyDictionary<string, long>? previousDamage;
+    private IReadOnlyDictionary<string, DamageEntry>? previousDamage;
     private bool enabled;
     private long nextPoll;
     private string? localName;
@@ -98,7 +98,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         if (Environment.TickCount64 < nextPoll) return;
         nextPoll = Environment.TickCount64 + 100;
         feed.CheckConnection();
-        var agent = AgentHUD.Instance();
+        var numbers = PartyListNumberArray.Instance();
         var player = objects.LocalPlayer?.Name.TextValue;
         var addon = CurrentAddon();
         var damage = feed.Damage;
@@ -108,18 +108,12 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         for (int i = 0; i < Slots; i++)
         {
             var node = NameNode(addon, i);
-            string name = "";
-            if (player != null && node != null)
-            {
-                if (i < PlayerSlots && agent != null && i < agent->PartyMemberCount)
-                    name = agent->PartyMembers[i].Name.ToString();
-                if (string.IsNullOrWhiteSpace(name))
-                    name = DisplayName(node, i);
-            }
-            if (roster[i] == name) continue;
+            uint id = node == null || numbers == null ? 0 : RowId(numbers, i);
+            string name = id == 0 ? "" : objects.SearchByEntityId(id)?.Name.TextValue ?? "";
+            if (entityIds[i] == id && roster[i] == name) continue;
             changed = true;
+            entityIds[i] = id;
             roster[i] = name;
-            rosterBytes[i] = Encoding.UTF8.GetBytes(name);
         }
         if (!changed) return;
         PartyDamageRanks.Calculate(roster, PlayerSlots, player, damage, labels);
@@ -180,47 +174,31 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         return (-1, -1);
     }
 
-    private string DisplayName(AtkTextNode* node, int row)
-    {
-        var text = node->NodeText.AsSpan();
-        if (edits[row] is { } edit && IsApplied(node, edit))
-            text = edit.Original.AsSpan(0, edit.Original.Length - 1);
-        var (_, end) = LevelRange(text);
-        if (end < 0) return "";
-        // Parse the complete string so embedded control payloads stay intact.
-        string name = SeString.Parse(text[end..]).TextValue.Trim();
-        int first = 0;
-        while (first < name.Length && (char.IsWhiteSpace(name[first]) || char.GetUnicodeCategory(name[first])
-               == System.Globalization.UnicodeCategory.PrivateUse)) first++;
-        return name[first..];
-    }
+    private static uint RowId(PartyListNumberArray* numbers, int row) => row < PlayerSlots
+        ? (uint)numbers->PartyMembers[row].EntityId : (uint)numbers->TrustMembers[row - PlayerSlots].EntityId;
 
     private void ApplyRows(AddonPartyList* addon)
     {
-        var agent = AgentHUD.Instance();
+        var numbers = PartyListNumberArray.Instance();
+        var strings = PartyListStringArray.Instance();
+        if (numbers == null || strings == null) return;
         for (int i = 0; i < Slots; i++)
         {
             var node = NameNode(addon, i);
-            var applied = edits[i];
-            bool owned = node != null && applied != null && IsApplied(node, applied);
-            if (!owned) edits[i] = null;
-            var label = labels[i];
-            if (node == null) continue;
-            bool matches = label != null && (i < PlayerSlots && agent != null && i < agent->PartyMemberCount &&
-                !agent->PartyMembers[i].Name.AsSpan().IsEmpty
-                ? agent->PartyMembers[i].Name.AsSpan().SequenceEqual(rosterBytes[i])
-                : owned ? applied!.Member == roster[i] : DisplayName(node, i) == roster[i]);
-            if (!matches)
+            var previous = edits[i];
+            if (node == null) { edits[i] = null; continue; }
+            var original = strings->Members[i].Name.AsSpan();
+            if (original.IsEmpty) continue;
+            if (labels[i] is not { } label || entityIds[i] == 0 || RowId(numbers, i) != entityIds[i])
             {
-                if (owned) node->SetText(applied!.Original.AsSpan());
+                if (previous?.Target == (nint)node) node->SetText((ReadOnlySpan<byte>)[..original, 0]);
                 edits[i] = null;
                 continue;
             }
-            // The label already on the node may be from an earlier rank or color.
-            // Rebuild from the game's saved bytes, never from our styled prefix.
-            if (owned && applied!.Label == label && ReferenceEquals(cache[i], applied)) continue;
-            var text = owned ? applied!.Original.AsSpan(0, applied.Original.Length - 1) : node->NodeText.AsSpan();
-            if (Replace(i, (nint)node, text, label!) is not { } edit) continue;
+            // NodeText may already contain ellipses or our styled prefix. The native input
+            // remains complete across text flow and supplies every byte for the new label.
+            var edit = Replace(i, (nint)node, original, label);
+            if (edit == null || IsApplied(node, edit)) continue;
             edits[i] = edit;
             node->SetText(edit.Replacement.AsSpan());
         }
@@ -228,12 +206,15 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
 
     private void RestoreRows(AddonPartyList* addon)
     {
+        var strings = PartyListStringArray.Instance();
         for (int i = 0; i < Slots; i++)
         {
-            if (edits[i] is not { } edit) continue;
+            var previous = edits[i];
             edits[i] = null;
             var node = NameNode(addon, i);
-            if (node != null && IsApplied(node, edit)) node->SetText(edit.Original.AsSpan());
+            if (node == null || previous?.Target != (nint)node || strings == null) continue;
+            var original = strings->Members[i].Name.AsSpan();
+            if (!original.IsEmpty) node->SetText((ReadOnlySpan<byte>)[..original, 0]);
         }
     }
 
