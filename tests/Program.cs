@@ -73,17 +73,13 @@ Check(Aetherworks.Features.PartyLevelText.Locate(System.Text.Encoding.UTF8.GetBy
 byte[] syncPayload = [2, 0x12, 2, 0x3F, 3];
 var levelBytes = System.Text.Encoding.UTF8.GetBytes(level);
 byte[] syncedRow = [..syncPayload, ..levelBytes, .." Alisaie"u8];
-Check(PartyLevelText.PrependPercentage(syncedRow, syncPayload.Length, syncPayload.Length + levelBytes.Length, "12%"u8)
-    .AsSpan().SequenceEqual((ReadOnlySpan<byte>)[.."12% "u8, ..syncPayload, .."Alisaie"u8, 0]),
-    "Percentage, native sync icon and name share one text run");
-Check(PartyLevelText.PrependPercentage(syncedRow.AsSpan(syncPayload.Length), 0, levelBytes.Length, "100%"u8)
-    .AsSpan().SequenceEqual("100% Alisaie\0"u8), "Unsynced name follows the percentage");
-byte[] otherPayload = [2, 0x12, 2, 0x40, 3];
-byte[] decoratedRow = [..otherPayload, ..syncPayload, ..levelBytes, .." Alisaie"u8];
-int levelStart = otherPayload.Length + syncPayload.Length;
-Check(PartyLevelText.PrependPercentage(decoratedRow, levelStart, levelStart + levelBytes.Length, " 5%"u8)
-    .AsSpan().SequenceEqual((ReadOnlySpan<byte>)[.." 5% "u8, ..otherPayload, ..syncPayload, .."Alisaie"u8, 0]),
-    "Native icon order survives a padded damage share");
+Check(PartyLevelText.RemoveLevel(syncedRow, syncPayload.Length, syncPayload.Length + levelBytes.Length)
+    .AsSpan().SequenceEqual((ReadOnlySpan<byte>)[..syncPayload, .."Alisaie"u8, 0]),
+    "Synced names begin with their native icon after the badge");
+Check(PartyLevelText.RemoveLevel(syncedRow.AsSpan(syncPayload.Length), 0, levelBytes.Length)
+    .AsSpan().SequenceEqual("Alisaie\0"u8), "Unsynced names start directly after the badge");
+Check(PartyLevelText.RemoveLevel("Alisaie"u8, 0, 0).AsSpan().SequenceEqual("Alisaie\0"u8),
+    "A name without a level does not acquire a duplicate percentage");
 
 var withdrawal = new LeaveOneWithdrawal(42, 4000, 5, 100, 1, 99);
 Check(withdrawal.Amount == 98 && withdrawal.Matches(42, 100, 1, 99), "Withdraw a stack minus its reserved copy");

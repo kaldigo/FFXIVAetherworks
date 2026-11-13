@@ -1,3 +1,5 @@
+Use the casting rank and percentage layout throughout the encounter. Place the idle name and its native sync icon after the badge.
+
 Append - Show or - Hide to the party title to indicate what clicking it will do.
 
 The party-title arrow toggles Ember and remembers the choice. When Ember is on, combat visibility and the hide delay apply.

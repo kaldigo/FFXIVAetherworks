@@ -31,15 +31,16 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     private readonly bool[] castingRows = new bool[Slots];
     private readonly int[] ranks = new int[Slots];
     private readonly IndicatorEdit?[] indicators = new IndicatorEdit?[Slots];
-    private sealed record IndicatorEdit(nint Node, string Original, char Glyph, string Share, bool Casting,
+    private sealed record IndicatorEdit(nint Node, string Original, char Glyph, string Share,
         System.Numerics.Vector3 Color, byte[] Applied, ushort BaseWidth, ushort Width);
+    private readonly RowSpace?[] nameSpace = new RowSpace?[Slots];
     private readonly RowSpace?[] castSpace = new RowSpace?[Slots];
     private sealed record RowSpace(nint Node, float X, ushort Width, int Shift, bool AddedEllipsis);
     private readonly string[] roster = new string[Slots];
     private readonly uint[] entityIds = new uint[Slots];
     private readonly Edit?[] cache = new Edit?[Slots];
     private readonly Edit?[] edits = new Edit?[Slots];
-    private sealed record Edit(nint Target, string Member, string Label, byte[] Original, byte[] Replacement);
+    private sealed record Edit(nint Target, string Member, byte[] Original, byte[] Replacement);
     private IReadOnlyDictionary<string, DamageEntry>? previousDamage;
     private bool enabled;
     private long nextPoll;
@@ -77,6 +78,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         lifecycle.UnregisterListener(AfterUpdate);
         feed.Stop();
         Array.Clear(castingRows);
+        Array.Clear(nameSpace);
         Array.Clear(castSpace);
         Array.Clear(indicators);
         Array.Clear(edits);
@@ -143,16 +145,15 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     }
 
     // Keep any SeString payloads in the displayed name byte-for-byte intact.
-    private Edit? Replace(int row, nint target, ReadOnlySpan<byte> text, string label)
+    private Edit? Replace(int row, nint target, ReadOnlySpan<byte> text)
     {
         if (text.IsEmpty) return null;
-        if (cache[row] is { } cached && cached.Target == target && cached.Member == roster[row] && cached.Label == label &&
+        if (cache[row] is { } cached && cached.Target == target && cached.Member == roster[row] &&
             text.SequenceEqual(cached.Original.AsSpan(0, cached.Original.Length - 1))) return cached;
         var (start, end) = LevelRange(text);
         if (start < 0) return null;
-        var percentage = StyledShare(label);
-        return cache[row] = new(target, roster[row], label, [..text, 0],
-            PartyLevelText.PrependPercentage(text, start, end, percentage.ToArray()));
+        return cache[row] = new(target, roster[row], [..text, 0],
+            PartyLevelText.RemoveLevel(text, start, end));
     }
 
     private Lumina.Text.SeStringBuilder StyledShare(string label)
@@ -222,16 +223,14 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
             if (self || glyph is >= '\uE08F' and <= '\uE0A2')
             {
                 if (rank > 0) glyph = (char)((self && rank <= 9 ? 0xE0E0 : 0xE08F) + rank);
-                if (saved == null || saved.Original != original || saved.Glyph != glyph || saved.Share != share || saved.Casting != casting ||
+                if (saved == null || saved.Original != original || saved.Glyph != glyph || saved.Share != share ||
                     saved.Color != config.PartyDamageColor || saved.BaseWidth != width)
                 {
-                    byte[] bytes = casting
-                        ? [..new Lumina.Text.SeStringBuilder().Append(glyph).Append(' ').ToArray(), ..StyledShare(share).ToArray(), 0]
-                        : [..System.Text.Encoding.UTF8.GetBytes(glyph.ToString()), 0];
+                    byte[] bytes = [..new Lumina.Text.SeStringBuilder().Append(glyph).Append(' ').ToArray(), ..StyledShare(share).ToArray(), 0];
                     ushort measured = 0, height = 0;
                     fixed (byte* text = bytes) node->GetTextDrawSize(&measured, &height, text);
-                    saved = new((nint)node, original, glyph, share, casting, config.PartyDamageColor, bytes, width,
-                        casting ? (ushort)Math.Max(width, measured + 2) : width);
+                    saved = new((nint)node, original, glyph, share, config.PartyDamageColor, bytes, width,
+                        (ushort)Math.Max(width, measured + 2));
                     ours = false;
                 }
                 if (node->Width != saved.Width) node->SetWidth(saved.Width);
@@ -248,8 +247,33 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         }
         var cast = row < PlayerSlots ? addon->PartyMembers[row].CastingActionName
             : addon->TrustMembers[row - PlayerSlots].CastingActionName;
+        var name = NameNode(addon, row);
+        int nameShift = 0;
+        if (applied && name != null)
+        {
+            // Compare the two nodes in addon coordinates: Trust and player rows can
+            // have different parents. Keep the name's right edge when moving its start.
+            var (badgeX, badgeScale) = HorizontalTransform((AtkResNode*)node);
+            var (parentX, parentScale) = HorizontalTransform(name->ParentNode);
+            var previous = nameSpace[row];
+            float baseX = previous?.Node == (nint)name && name->X == previous.X + previous.Shift ? previous.X : name->X;
+            if (parentScale > 0)
+                nameShift = (int)MathF.Ceiling((badgeX + node->Width * badgeScale - parentX) / parentScale - baseX);
+        }
+        ReserveSpace(name, nameShift, ref nameSpace[row]);
         // The cast label starts to the left of the badge and is right aligned.
         ReserveSpace(cast, casting && applied ? saved!.Width + 4 : 0, ref castSpace[row]);
+    }
+
+    private static (float X, float Scale) HorizontalTransform(AtkResNode* node)
+    {
+        float x = 0, scale = 1;
+        for (; node != null; node = node->ParentNode)
+        {
+            x = node->X + node->OriginX + (x - node->OriginX) * node->ScaleX;
+            scale *= node->ScaleX;
+        }
+        return (x, scale);
     }
 
     private static void ReserveSpace(AtkTextNode* node, int shift, ref RowSpace? saved)
@@ -258,13 +282,13 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
         if (node == null || (saved == null && shift == 0)) return;
         float x = saved != null && node->X == saved.X + saved.Shift ? saved.X : node->X;
         ushort width = saved != null && node->Width == saved.Width - saved.Shift ? saved.Width : node->Width;
-        shift = Math.Min(shift, Math.Max(0, width - 1));
+        shift = Math.Clamp(shift, width - ushort.MaxValue, Math.Max(0, width - 1));
         bool addEllipsis = saved?.AddedEllipsis ?? !node->TextFlags.HasFlag(TextFlags.Ellipsis);
         if (node->X != x + shift) node->SetXFloat(x + shift);
         if (node->Width != width - shift) node->SetWidth((ushort)(width - shift));
         if (addEllipsis)
         {
-            if (shift > 0) node->TextFlags |= TextFlags.Ellipsis;
+            if (shift != 0) node->TextFlags |= TextFlags.Ellipsis;
             else node->TextFlags &= ~TextFlags.Ellipsis;
         }
         if (shift == 0) saved = null;
@@ -293,7 +317,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
                 casting);
             if (node == null) { edits[i] = null; continue; }
             if (original.IsEmpty) continue;
-            if (labels[i] is not { } label || entityIds[i] == 0 || RowId(numbers, i) != entityIds[i])
+            if (labels[i] == null || indicators[i] == null || entityIds[i] == 0 || RowId(numbers, i) != entityIds[i])
             {
                 if (previous?.Target == (nint)node) node->SetText((ReadOnlySpan<byte>)[..original, 0]);
                 edits[i] = null;
@@ -301,7 +325,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
             }
             // NodeText may already contain ellipses or our styled prefix. The native input
             // remains complete across text flow and supplies every byte for the new label.
-            var edit = Replace(i, (nint)node, original, label);
+            var edit = Replace(i, (nint)node, original);
             if (edit == null || IsApplied(node, edit)) continue;
             edits[i] = edit;
             node->SetText(edit.Replacement.AsSpan());
@@ -388,6 +412,7 @@ public sealed unsafe class PartyDamage(IDalamudPluginInterface plugin, IAddonLif
     {
         DetachHeader((AddonPartyList*)args.Addon.Address);
         Array.Clear(castingRows);
+        Array.Clear(nameSpace);
         Array.Clear(castSpace);
         Array.Clear(indicators);
         Array.Clear(edits);
