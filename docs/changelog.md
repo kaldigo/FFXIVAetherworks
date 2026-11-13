@@ -1,3 +1,5 @@
+Draw the damage percentage at its idle name position during casts. The native action label keeps its own text and position.
+
 Show the same IINACT damage percentage before the action name while a party or Trust member is casting.
 
 Restore the exact v0.2.1.14 party-row implementation, including its original cast behavior. Keep the Ember header toggle separate.
