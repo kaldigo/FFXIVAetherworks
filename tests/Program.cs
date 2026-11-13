@@ -73,13 +73,14 @@ Check(Aetherworks.Features.PartyLevelText.Locate(System.Text.Encoding.UTF8.GetBy
 byte[] syncPayload = [2, 0x12, 2, 0x3F, 3];
 var levelBytes = System.Text.Encoding.UTF8.GetBytes(level);
 byte[] syncedRow = [..syncPayload, ..levelBytes, .." Alisaie"u8];
-Check(PartyLevelText.RemoveLevel(syncedRow, syncPayload.Length, syncPayload.Length + levelBytes.Length)
-    .AsSpan().SequenceEqual((ReadOnlySpan<byte>)[..syncPayload, .."Alisaie"u8, 0]),
-    "Synced names begin with their native icon after the badge");
-Check(PartyLevelText.RemoveLevel(syncedRow.AsSpan(syncPayload.Length), 0, levelBytes.Length)
-    .AsSpan().SequenceEqual("Alisaie\0"u8), "Unsynced names start directly after the badge");
-Check(PartyLevelText.RemoveLevel("Alisaie"u8, 0, 0).AsSpan().SequenceEqual("Alisaie\0"u8),
-    "A name without a level does not acquire a duplicate percentage");
+Check(PartyLevelText.PrependPercentage(syncedRow, syncPayload.Length, syncPayload.Length + levelBytes.Length, "25%"u8)
+    .AsSpan().SequenceEqual((ReadOnlySpan<byte>)[.."25% "u8, ..syncPayload, .."Alisaie"u8, 0]),
+    "Sync icon uses its native padding before the name");
+Check(PartyLevelText.PrependPercentage(syncedRow.AsSpan(syncPayload.Length), 0, levelBytes.Length, "25%"u8)
+    .AsSpan().SequenceEqual("25% Alisaie\0"u8), "Unsynced percentage has one separator");
+
+Check(PartyLevelText.PrependPercentage("Stone III"u8, 0, 0, "42%"u8)
+    .AsSpan().SequenceEqual("42% Stone III\0"u8), "Casting uses the native cast label with one separator");
 
 var withdrawal = new LeaveOneWithdrawal(42, 4000, 5, 100, 1, 99);
 Check(withdrawal.Amount == 98 && withdrawal.Matches(42, 100, 1, 99), "Withdraw a stack minus its reserved copy");

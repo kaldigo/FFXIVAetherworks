@@ -1,3 +1,5 @@
+Restore native party-row spacing. Show rank in the slot badge and damage share alongside the name or cast action using text only.
+
 Use the casting rank and percentage layout throughout the encounter. Place the idle name and its native sync icon after the badge.
 
 Append - Show or - Hide to the party title to indicate what clicking it will do.
