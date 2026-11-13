@@ -1,3 +1,5 @@
+Draw IINACT percentage together with the rank badge during casts. Reserve space for the name and cast label.
+
 Remove the leftover level separator between the level-sync icon and the character name.
 
 Place the IINACT damage percentage between the damage-rank badge and the level-sync icon.
